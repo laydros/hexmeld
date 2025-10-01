@@ -43,7 +43,11 @@
         #gameOver p{margin:6px 0;color:var(--muted)}
         #resetButton{margin-top:16px}
         .cb-hint{font-size:.9em;color:var(--muted)}
-        @media (max-width:768px){body{padding:var(--gap) var(--gap) calc(var(--gap)*2)};#canvas{max-width:100%;border-radius:8px}}
+        @media (max-width:768px){
+            body{padding:var(--gap) 0 calc(var(--gap)*2);}
+            .panel{border-radius:0;}
+            #canvas{max-width:100%;border-radius:8px;}
+        }
     </style>
 </head>
 <body>
