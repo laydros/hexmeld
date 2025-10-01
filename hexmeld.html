@@ -39,10 +39,14 @@
             gap: 10px;
         }
 
-        #score {
+        #score, #turns {
             font-weight: bold;
             font-size: 20px;
             color: #333;
+        }
+
+        .stat {
+            margin-right: 20px;
         }
 
         #preview {
@@ -124,7 +128,10 @@
 <body>
     <div id="gameContainer">
         <div id="scoreBoard">
-            <div>Score: <span id="score">0</span></div>
+            <div style="display: flex; gap: 20px;">
+                <div class="stat">Score: <span id="score">0</span></div>
+                <div class="stat">Turn: <span id="turns">0</span></div>
+            </div>
             <div id="preview">
                 <span>Next:</span>
                 <div class="previewBall" id="preview0"></div>
@@ -148,8 +155,20 @@
             '#FF0000', // Red
             '#00FF00', // Green
             '#FFA500', // Orange
-            '#800080'  // Purple
+            '#800080', // Purple
+            '#FFFFFF', // White
+            '#00FFFF'  // Turquoise
         ];
+
+        // ====== COLOR EXPANSION CONFIG (EDIT HERE FOR TESTING) ======
+        const COLOR_CONFIG = {
+            startingColors: 6,  // Start with first 6 colors (0-5)
+            expansions: [
+                { afterTurn: 20, addColors: 2 }  // After turn 20, add 2 more colors (indices 6-7)
+                // Add more expansions like: { afterTurn: 50, addColors: 2 }
+            ]
+        };
+        // ============================================================
 
         // Canvas setup
         const canvas = document.getElementById('canvas');
@@ -159,6 +178,8 @@
         let grid = new Map();
         let selectedCell = null;
         let score = 0;
+        let turnCount = 0;
+        let availableColorCount = COLOR_CONFIG.startingColors;
         let preview = [];
         let gameOver = false;
 
@@ -201,6 +222,8 @@
             grid.clear();
             selectedCell = null;
             score = 0;
+            turnCount = 0;
+            availableColorCount = COLOR_CONFIG.startingColors;
             gameOver = false;
             document.getElementById('gameOver').style.display = 'none';
 
@@ -215,21 +238,33 @@
                 if (emptyCells.length > 0) {
                     const idx = Math.floor(Math.random() * emptyCells.length);
                     const cell = emptyCells.splice(idx, 1)[0];
-                    const color = Math.floor(Math.random() * COLORS.length);
+                    const color = Math.floor(Math.random() * availableColorCount);
                     grid.set(cell, { color });
                 }
             }
 
             updateScore();
+            updateTurnDisplay();
             render();
+        }
+
+        // Update available colors based on turn count
+        function updateAvailableColors() {
+            let newColorCount = COLOR_CONFIG.startingColors;
+            for (const expansion of COLOR_CONFIG.expansions) {
+                if (turnCount >= expansion.afterTurn) {
+                    newColorCount += expansion.addColors;
+                }
+            }
+            availableColorCount = Math.min(newColorCount, COLORS.length);
         }
 
         // Generate preview of 3 random balls
         function generatePreview() {
             return [
-                Math.floor(Math.random() * COLORS.length),
-                Math.floor(Math.random() * COLORS.length),
-                Math.floor(Math.random() * COLORS.length)
+                Math.floor(Math.random() * availableColorCount),
+                Math.floor(Math.random() * availableColorCount),
+                Math.floor(Math.random() * availableColorCount)
             ];
         }
 
@@ -243,6 +278,11 @@
         // Update score display
         function updateScore() {
             document.getElementById('score').textContent = score;
+        }
+
+        // Update turn display
+        function updateTurnDisplay() {
+            document.getElementById('turns').textContent = turnCount;
         }
 
         // Get all valid hex cells for the board
@@ -566,6 +606,11 @@
                     const ball = grid.get(selectedCell);
                     grid.delete(selectedCell);
                     grid.set(cellKey, ball);
+
+                    // Increment turn counter
+                    turnCount++;
+                    updateTurnDisplay();
+                    updateAvailableColors();
 
                     // Check for groups at destination
                     const scoreGained = checkAndRemoveGroups([cellKey]);
