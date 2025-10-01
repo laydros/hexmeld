@@ -14,11 +14,11 @@ Score scales with group size: 6 balls = 6 points, 7 = 8 points, 8 = 11 points, e
 
 ## Running
 
-Open `hexmeld.html` in any modern web browser. No server or build process required.
+Open `hexmeld.html` in any modern web browser.
 
 ## Development
 
-This game was developed with AI assistance using Claude Code.
+This game was developed with AI assistance.
 
 ## License
 
