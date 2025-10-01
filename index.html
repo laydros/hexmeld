@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#0b1020">
     <link rel="manifest" href="assets/manifest.webmanifest">
     <style>
-        :root{color-scheme:dark light;--bg-dark:#0b1020;--panel-dark:#11182a;--text-dark:#e8ebf0;--muted-dark:#93a0b4;--bg-light:#f6f7fb;--panel-light:#fff;--text-light:#0f1422;--muted-light:#5b667a;--primary:#5b7fff;--danger:#ff6b6b;--gap:12px}
+        :root{color-scheme:dark light;--bg-dark:#1a1f35;--panel-dark:#242b45;--text-dark:#e8ebf0;--muted-dark:#93a0b4;--bg-light:#f6f7fb;--panel-light:#fff;--text-light:#0f1422;--muted-light:#5b667a;--primary:#5b7fff;--danger:#ff6b6b;--gap:12px}
         *,*::before,*::after{box-sizing:border-box}
         body{margin:0;min-height:100vh;display:flex;flex-direction:column;gap:var(--gap);padding:var(--gap);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark);background:var(--bg);color:var(--text)}
         body.theme-dark{color-scheme:dark;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark)}
@@ -114,7 +114,7 @@
         export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
 
         // Version check
-        const GAME_VERSION = '1.0.11';
+        const GAME_VERSION = '1.0.12';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -636,7 +636,8 @@
             // Draw animated balls (on top of everything)
             for (const ball of animatedBalls) {
                 const pos = hexToPixel(ball.q, ball.r);
-                drawBall(pos.x, pos.y, ball.color, false, ball.scale, ball.opacity);
+                const offsetY = ball.offsetY || 0;
+                drawBall(pos.x, pos.y + offsetY, ball.color, false, ball.scale, ball.opacity);
             }
         }
 
@@ -646,43 +647,82 @@
 
         // ====== ANIMATION FUNCTIONS ======
 
-        // Animate ball movement from source to destination
-        function animateMoveBall(fromKey, toKey, ball, onComplete) {
+        // Animate ball movement along a path with hopping effect
+        function animateMoveBallAlongPath(path, ball, onComplete) {
+            if (!path || path.length < 2) {
+                if (onComplete) onComplete();
+                return;
+            }
+
             inputLocked = true;
 
+            const fromKey = path[0];
             const [fromQ, fromR] = fromKey.split(',').map(Number);
-            const [toQ, toR] = toKey.split(',').map(Number);
-            const fromPos = hexToPixel(fromQ, fromR);
-            const toPos = hexToPixel(toQ, toR);
 
-            // Create animated ball
+            // Create animated ball with additional properties for jumping
             const animBall = {
                 q: fromQ,
                 r: fromR,
                 color: ball.color,
                 scale: 1,
-                opacity: 1
+                opacity: 1,
+                offsetY: 0  // Vertical offset for jumping effect
             };
             animatedBalls.push(animBall);
 
             // Remove ball from source in grid (it's now being animated)
             grid.delete(fromKey);
 
-            addAnimation(
-                (progress) => {
-                    const eased = easeOutQuad(progress);
-                    animBall.q = fromQ + (toQ - fromQ) * eased;
-                    animBall.r = fromR + (toR - fromR) * eased;
-                },
-                () => {
-                    // Animation complete - place ball at destination
+            let currentSegment = 0;
+
+            function animateNextHop() {
+                if (currentSegment >= path.length - 1) {
+                    // Animation complete - place ball at final destination
+                    const finalKey = path[path.length - 1];
                     animatedBalls = animatedBalls.filter(b => b !== animBall);
-                    grid.set(toKey, ball);
+                    grid.set(finalKey, ball);
                     inputLocked = false;
                     if (onComplete) onComplete();
-                },
-                250 // 250ms duration
-            );
+                    return;
+                }
+
+                const fromKey = path[currentSegment];
+                const toKey = path[currentSegment + 1];
+                const [fromQ, fromR] = fromKey.split(',').map(Number);
+                const [toQ, toR] = toKey.split(',').map(Number);
+
+                currentSegment++;
+
+                const hopDuration = 150; // 150ms per hop
+
+                addAnimation(
+                    (progress) => {
+                        const eased = easeOutQuad(progress);
+
+                        // Move between cells
+                        animBall.q = fromQ + (toQ - fromQ) * eased;
+                        animBall.r = fromR + (toR - fromR) * eased;
+
+                        // Create parabolic arc (jump effect)
+                        // Peak of jump is at progress = 0.5
+                        const jumpHeight = HEX_SIZE * 0.4;
+                        const jumpProgress = Math.sin(progress * Math.PI);
+                        animBall.offsetY = -jumpHeight * jumpProgress;
+
+                        // Slight scale increase during jump
+                        const scaleBoost = 1 + (0.15 * jumpProgress);
+                        animBall.scale = scaleBoost;
+                    },
+                    () => {
+                        // This hop is complete, start next one
+                        animateNextHop();
+                    },
+                    hopDuration
+                );
+            }
+
+            // Start the hopping animation
+            animateNextHop();
         }
 
         // Animate blocked move (red flash on both source ball and destination cell)
@@ -788,13 +828,15 @@
 
         // ====== END ANIMATION FUNCTIONS ======
 
-        // BFS pathfinding
+        // BFS pathfinding - returns path as array of cell keys, or null if no path exists
         function findPath(startKey, endKey) {
-            if (startKey === endKey) return true;
-            if (grid.has(endKey)) return false;
+            if (startKey === endKey) return [startKey];
+            if (grid.has(endKey)) return null;
 
             const queue = [startKey];
             const visited = new Set([startKey]);
+            const parent = new Map(); // Track parent for path reconstruction
+            parent.set(startKey, null);
 
             while (queue.length > 0) {
                 const current = queue.shift();
@@ -802,16 +844,26 @@
                 const neighbors = getNeighbors(q, r);
 
                 for (const neighbor of neighbors) {
-                    if (neighbor === endKey) return true;
+                    if (neighbor === endKey) {
+                        // Found the path! Reconstruct it
+                        const path = [endKey];
+                        let step = current;
+                        while (step !== null) {
+                            path.unshift(step);
+                            step = parent.get(step);
+                        }
+                        return path;
+                    }
 
                     if (!visited.has(neighbor) && !grid.has(neighbor)) {
                         visited.add(neighbor);
+                        parent.set(neighbor, current);
                         queue.push(neighbor);
                     }
                 }
             }
 
-            return false;
+            return null;
         }
 
         // Flood fill to find connected group
@@ -983,14 +1035,14 @@
 
             // If clicking empty cell with a ball selected
             if (selectedCell && !grid.has(cellKey)) {
-                // Check if path exists
-                if (findPath(selectedCell, cellKey)) {
+                // Check if path exists and get the path
+                const path = findPath(selectedCell, cellKey);
+                if (path) {
                     const ball = grid.get(selectedCell);
-                    const moveFrom = selectedCell;
                     selectedCell = null;
 
-                    // Animate ball movement
-                    animateMoveBall(moveFrom, cellKey, ball, () => {
+                    // Animate ball movement along the path
+                    animateMoveBallAlongPath(path, ball, () => {
                         // Increment turn counter
                         turnCount++;
                         updateTurnDisplay();
