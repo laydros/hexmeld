@@ -15,7 +15,8 @@
         body.theme-dark{color-scheme:dark;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark)}
         body.theme-light{color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}
         @media (prefers-color-scheme: light){body:not(.theme-dark){color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}}
-        .panel{max-width:760px;width:100%;margin:0 auto;padding:12px;background:var(--panel);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+        .panel{max-width:660px;width:100%;margin:0 auto;padding:12px;background:var(--panel);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+
         .header{display:flex;justify-content:space-between;align-items:baseline;gap:var(--gap)}
         h1{font-size:1.4rem;margin:0}
         .meta{color:var(--muted)}
@@ -29,7 +30,7 @@
         @keyframes flash{50%{filter:brightness(1.8) saturate(1.4)}}
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
-        #canvas{width:100%;height:auto;max-width:640px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
+        #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
         #preview{display:flex;gap:8px;align-items:center;font-weight:600}
         .previewBall{width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,.35)}
         footer{margin-top:auto;text-align:center;font-size:.85rem;color:var(--muted)}
@@ -44,6 +45,7 @@
         @media (max-width:768px){
             body{padding:var(--gap) 0 calc(var(--gap)*2);}
             .panel{border-radius:0;}
+            #gameContainer{padding:10px 8px 16px;}
             #canvas{max-width:100%;border-radius:8px;}
         }
     </style>
@@ -112,7 +114,7 @@
         export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
 
         // Version check
-        const GAME_VERSION = '1.0.10';
+        const GAME_VERSION = '1.0.11;
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -183,7 +185,8 @@
 
             // Available space for the entire canvas
             const availableWidth = window.innerWidth - canvasPadding;
-            const availableHeight = window.innerHeight - 200;
+            const headerAllowance = isMobile ? 220 : 260;
+            const availableHeight = window.innerHeight - headerAllowance;
 
             // Board dimensions: how much space the hex board actually needs
             // Horizontal: furthest hex at q=±BOARD_RADIUS is at ±(1.5 * BOARD_RADIUS * HEX_SIZE)
@@ -198,7 +201,8 @@
             const maxHexWidth = (availableWidth - boardPadding * 2) / boardHexWidth;
             const maxHexHeight = (availableHeight - boardPadding * 2) / boardHexHeight;
 
-            HEX_SIZE = Math.min(maxHexWidth, maxHexHeight, 25);
+            const sizeCap = isMobile ? 25 : 22;
+            HEX_SIZE = Math.min(maxHexWidth, maxHexHeight, sizeCap);
             // Ensure minimum size of 20px for mobile touch targets
             HEX_SIZE = Math.max(HEX_SIZE, isMobile ? 20 : 10);
 
