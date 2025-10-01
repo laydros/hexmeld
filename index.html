@@ -11,13 +11,56 @@
 
         body {
             margin: 0;
-            padding: 10px;
+            padding: 0;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            background-color: #333;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            width: 100%;
+        }
+
+        footer {
+            width: 100%;
+            background-color: #333;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        footer a {
+            color: #4CAF50;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
         }
 
         #gameContainer {
@@ -119,7 +162,15 @@
         }
 
         @media (max-width: 600px) {
-            body {
+            header h1 {
+                font-size: 24px;
+            }
+
+            header {
+                padding: 15px 0;
+            }
+
+            main {
                 padding: 5px;
             }
 
@@ -148,10 +199,20 @@
             #gameOver p {
                 font-size: 14px;
             }
+
+            footer {
+                font-size: 12px;
+                padding: 10px 0;
+            }
         }
     </style>
 </head>
 <body>
+    <header>
+        <h1>Hexmeld</h1>
+    </header>
+
+    <main>
     <div id="gameContainer">
         <div id="scoreBoard">
             <div class="leftStats">
@@ -173,6 +234,12 @@
         <p>High Score: <span id="highScore">0</span></p>
         <button id="resetButton">Play Again</button>
     </div>
+    </main>
+
+    <footer>
+        <a href="instructions.html">How to Play</a> |
+        <a href="https://github.com/laydros/hexmeld" target="_blank">View on GitHub</a>
+    </footer>
 
     <script>
         // Constants
@@ -336,6 +403,7 @@
         // Animation overlays (drawn on top of normal rendering)
         let animatedBalls = []; // { q, r, color, scale, opacity }
         let blockedCell = null; // { q, r, flashProgress }
+        let blockedSourceCell = null; // { q, r, flashProgress }
 
         // ====== END ANIMATION FRAMEWORK ======
 
@@ -623,6 +691,18 @@
                     const cell = grid.get(cellKey);
                     const isSelected = selectedCell === cellKey;
                     drawBall(pos.x, pos.y, cell.color, isSelected);
+
+                    // If this ball is the blocked source, add red outline flash
+                    if (blockedSourceCell && blockedSourceCell.q === q && blockedSourceCell.r === r) {
+                        const alpha = 1 - blockedSourceCell.flashProgress;
+                        ctx.save();
+                        ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                        ctx.lineWidth = 4;
+                        ctx.beginPath();
+                        ctx.arc(pos.x, pos.y, HEX_SIZE * 0.7, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
                 }
             }
 
@@ -674,17 +754,21 @@
             );
         }
 
-        // Animate blocked move (red flash)
-        function animateBlockedMove(cellKey) {
-            const [q, r] = cellKey.split(',').map(Number);
-            blockedCell = { q, r, flashProgress: 0 };
+        // Animate blocked move (red flash on both source ball and destination cell)
+        function animateBlockedMove(sourceKey, destKey) {
+            const [destQ, destR] = destKey.split(',').map(Number);
+            const [srcQ, srcR] = sourceKey.split(',').map(Number);
+            blockedCell = { q: destQ, r: destR, flashProgress: 0 };
+            blockedSourceCell = { q: srcQ, r: srcR, flashProgress: 0 };
 
             addAnimation(
                 (progress) => {
                     blockedCell.flashProgress = progress;
+                    blockedSourceCell.flashProgress = progress;
                 },
                 () => {
                     blockedCell = null;
+                    blockedSourceCell = null;
                 },
                 200 // 200ms duration
             );
@@ -991,7 +1075,7 @@
                     });
                 } else {
                     // Path blocked - show feedback
-                    animateBlockedMove(cellKey);
+                    animateBlockedMove(selectedCell, cellKey);
                 }
             }
         });
