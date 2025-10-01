@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hexmeld - Hexagonal Puzzle Game</title>
     <style>
         * {
@@ -18,6 +18,10 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
 
         header {
@@ -296,26 +300,37 @@
         let HEX_SIZE = 25;
         let hexWidth = HEX_SIZE * 2;
         let hexHeight = Math.sqrt(3) * HEX_SIZE;
+        let isMobile = false;
+        let hitRadius = HEX_SIZE * 0.5;
 
         // Calculate optimal canvas size and hex size
         function calculateCanvasSize() {
-            const maxWidth = Math.min(window.innerWidth - 40, 800);
+            // Detect mobile
+            isMobile = window.innerWidth < 768;
+
+            // Use minimal padding on mobile, more on desktop
+            const horizontalPadding = isMobile ? 20 : 60;
+            const availableWidth = window.innerWidth - horizontalPadding;
             const maxHeight = window.innerHeight - 200;
 
             // Calculate hex size based on board radius
-            // We need to fit 2*BOARD_RADIUS + 1 hexes horizontally
+            // Board width ≈ BOARD_RADIUS * 2 * hexWidth * 0.75
             const hexCountWidth = BOARD_RADIUS * 2 + 1;
             const hexCountHeight = BOARD_RADIUS * 2 + 1;
 
             // Calculate max hex size that fits
-            const maxHexWidth = maxWidth / (hexCountWidth * 1.5 + 0.5);
+            const maxHexWidth = availableWidth / (hexCountWidth * 1.5 + 0.5);
             const maxHexHeight = maxHeight / (hexCountHeight * Math.sqrt(3));
 
             HEX_SIZE = Math.min(maxHexWidth, maxHexHeight, 25);
-            HEX_SIZE = Math.max(HEX_SIZE, 10); // Minimum hex size
+            // Ensure minimum size of 20px for mobile touch targets
+            HEX_SIZE = Math.max(HEX_SIZE, isMobile ? 20 : 10);
 
             hexWidth = HEX_SIZE * 2;
             hexHeight = Math.sqrt(3) * HEX_SIZE;
+
+            // Update hit radius based on device type
+            hitRadius = isMobile ? HEX_SIZE * 0.6 : HEX_SIZE * 0.5;
 
             // Calculate canvas dimensions with padding
             const canvasWidth = HEX_SIZE * 3 * (BOARD_RADIUS + 1) + HEX_SIZE;
@@ -404,6 +419,7 @@
         let animatedBalls = []; // { q, r, color, scale, opacity }
         let blockedCell = null; // { q, r, flashProgress }
         let blockedSourceCell = null; // { q, r, flashProgress }
+        let touchedHex = null; // For touch feedback
 
         // ====== END ANIMATION FRAMEWORK ======
 
@@ -651,6 +667,28 @@
             ctx.restore();
         }
 
+        // Draw touch feedback
+        function drawTouchFeedback(q, r) {
+            const pos = hexToPixel(q, r);
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = Math.PI / 3 * i;
+                const x = pos.x + HEX_SIZE * Math.cos(angle);
+                const y = pos.y + HEX_SIZE * Math.sin(angle);
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Render the game
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -703,6 +741,11 @@
                         ctx.stroke();
                         ctx.restore();
                     }
+                }
+
+                // Draw touch feedback
+                if (touchedHex && touchedHex.q === q && touchedHex.r === r) {
+                    drawTouchFeedback(q, r);
                 }
             }
 
@@ -1025,18 +1068,22 @@
             });
         }
 
-        // Handle click
-        canvas.addEventListener('click', (e) => {
+        // Handle input (used by both touch and click)
+        function handleInput(x, y) {
             if (gameOver || inputLocked) return;
-
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
 
             const hex = pixelToHex(x, y);
             if (!isValidHex(hex.q, hex.r)) return;
 
             const cellKey = `${hex.q},${hex.r}`;
+
+            // Show touch feedback
+            touchedHex = { q: hex.q, r: hex.r };
+            render();
+            setTimeout(() => {
+                touchedHex = null;
+                render();
+            }, 100);
 
             // If clicking on a ball
             if (grid.has(cellKey)) {
@@ -1078,7 +1125,41 @@
                     animateBlockedMove(selectedCell, cellKey);
                 }
             }
+        }
+
+        // Get touch coordinates
+        function getTouchCoords(touch) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+
+        // Handle touch start
+        function handleTouchStart(e) {
+            e.preventDefault(); // Prevent ghost clicks and scrolling
+            const touch = e.touches[0];
+            const coords = getTouchCoords(touch);
+            handleInput(coords.x, coords.y);
+        }
+
+        // Handle touch end
+        function handleTouchEnd(e) {
+            e.preventDefault();
+        }
+
+        // Handle click
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            handleInput(x, y);
         });
+
+        // Touch event listeners
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
         // Handle window resize
         let resizeTimeout;
