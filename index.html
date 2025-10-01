@@ -18,11 +18,6 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            overflow-y: auto;
         }
 
         header {
@@ -41,7 +36,6 @@
         }
 
         main {
-            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -268,7 +262,7 @@
 
     <script>
         // Version check
-        const GAME_VERSION = '1.0.5-mobile';
+        const GAME_VERSION = '1.0.6-mobile';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
