@@ -219,6 +219,11 @@
         let preview = [];
         let gameOver = false;
         let highScore = 0;
+        let inputLocked = false; // Prevent input during animations
+
+        // Animation state
+        const animations = [];
+        let animationFrameId = null;
 
         // Dynamic sizing
         let HEX_SIZE = 25;
@@ -252,6 +257,87 @@
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
         }
+
+        // ====== ANIMATION FRAMEWORK ======
+
+        // Easing functions
+        function easeOutQuad(t) {
+            return 1 - Math.pow(1 - t, 2);
+        }
+
+        function easeInQuad(t) {
+            return t * t;
+        }
+
+        // Animation loop
+        function animationLoop() {
+            if (animations.length === 0) {
+                animationFrameId = null;
+                return;
+            }
+
+            const now = performance.now();
+
+            // Update all animations
+            for (let i = animations.length - 1; i >= 0; i--) {
+                const anim = animations[i];
+                const elapsed = now - anim.startTime;
+                const progress = Math.min(1, elapsed / anim.duration);
+
+                anim.update(progress);
+
+                if (progress >= 1) {
+                    if (anim.onComplete) {
+                        anim.onComplete();
+                    }
+                    animations.splice(i, 1);
+                }
+            }
+
+            render();
+
+            if (animations.length > 0) {
+                animationFrameId = requestAnimationFrame(animationLoop);
+            } else {
+                animationFrameId = null;
+            }
+        }
+
+        // Add an animation
+        function addAnimation(update, onComplete, duration) {
+            animations.push({
+                startTime: performance.now(),
+                duration,
+                update,
+                onComplete
+            });
+
+            if (!animationFrameId) {
+                animationFrameId = requestAnimationFrame(animationLoop);
+            }
+        }
+
+        // Wait for all animations to complete
+        function waitForAnimations(callback) {
+            if (animations.length === 0) {
+                callback();
+            } else {
+                const checkInterval = setInterval(() => {
+                    if (animations.length === 0) {
+                        clearInterval(checkInterval);
+                        callback();
+                    }
+                }, 10);
+            }
+        }
+
+        // ====== END ANIMATION FRAMEWORK ======
+
+        // Animation overlays (drawn on top of normal rendering)
+        let animatedBalls = []; // { q, r, color, scale, opacity }
+        let blockedCell = null; // { q, r, flashProgress }
+
+        // ====== END ANIMATION FRAMEWORK ======
 
         // Load high score from localStorage
         function loadHighScore() {
@@ -479,9 +565,12 @@
         }
 
         // Draw a ball
-        function drawBall(centerX, centerY, colorIndex, isSelected = false) {
+        function drawBall(centerX, centerY, colorIndex, isSelected = false, scale = 1, opacity = 1) {
+            ctx.save();
+            ctx.globalAlpha = opacity;
+
             ctx.beginPath();
-            ctx.arc(centerX, centerY, HEX_SIZE * 0.7, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, HEX_SIZE * 0.7 * scale, 0, Math.PI * 2);
             ctx.fillStyle = COLORS[colorIndex];
             ctx.fill();
 
@@ -490,6 +579,8 @@
                 ctx.lineWidth = 3;
                 ctx.stroke();
             }
+
+            ctx.restore();
         }
 
         // Render the game
@@ -502,7 +593,31 @@
                 const [q, r] = cellKey.split(',').map(Number);
                 const pos = hexToPixel(q, r);
 
-                drawHex(pos.x, pos.y, '#999');
+                // Check if this is the blocked cell (show red flash)
+                if (blockedCell && blockedCell.q === q && blockedCell.r === r) {
+                    const alpha = 1 - blockedCell.flashProgress;
+                    drawHex(pos.x, pos.y, '#999', `rgba(255, 0, 0, ${alpha})`);
+                    // Draw extra thick red outline
+                    ctx.save();
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = Math.PI / 3 * i;
+                        const x = pos.x + HEX_SIZE * Math.cos(angle);
+                        const y = pos.y + HEX_SIZE * Math.sin(angle);
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    drawHex(pos.x, pos.y, '#999');
+                }
 
                 if (grid.has(cellKey)) {
                     const cell = grid.get(cellKey);
@@ -510,7 +625,152 @@
                     drawBall(pos.x, pos.y, cell.color, isSelected);
                 }
             }
+
+            // Draw animated balls (on top of everything)
+            for (const ball of animatedBalls) {
+                const pos = hexToPixel(ball.q, ball.r);
+                drawBall(pos.x, pos.y, ball.color, false, ball.scale, ball.opacity);
+            }
         }
+
+        // ====== ANIMATION FUNCTIONS ======
+
+        // Animate ball movement from source to destination
+        function animateMoveBall(fromKey, toKey, ball, onComplete) {
+            inputLocked = true;
+
+            const [fromQ, fromR] = fromKey.split(',').map(Number);
+            const [toQ, toR] = toKey.split(',').map(Number);
+            const fromPos = hexToPixel(fromQ, fromR);
+            const toPos = hexToPixel(toQ, toR);
+
+            // Create animated ball
+            const animBall = {
+                q: fromQ,
+                r: fromR,
+                color: ball.color,
+                scale: 1,
+                opacity: 1
+            };
+            animatedBalls.push(animBall);
+
+            // Remove ball from source in grid (it's now being animated)
+            grid.delete(fromKey);
+
+            addAnimation(
+                (progress) => {
+                    const eased = easeOutQuad(progress);
+                    animBall.q = fromQ + (toQ - fromQ) * eased;
+                    animBall.r = fromR + (toR - fromR) * eased;
+                },
+                () => {
+                    // Animation complete - place ball at destination
+                    animatedBalls = animatedBalls.filter(b => b !== animBall);
+                    grid.set(toKey, ball);
+                    inputLocked = false;
+                    if (onComplete) onComplete();
+                },
+                250 // 250ms duration
+            );
+        }
+
+        // Animate blocked move (red flash)
+        function animateBlockedMove(cellKey) {
+            const [q, r] = cellKey.split(',').map(Number);
+            blockedCell = { q, r, flashProgress: 0 };
+
+            addAnimation(
+                (progress) => {
+                    blockedCell.flashProgress = progress;
+                },
+                () => {
+                    blockedCell = null;
+                },
+                200 // 200ms duration
+            );
+        }
+
+        // Animate spawning balls
+        function animateSpawnBalls(cellsAndColors, onComplete) {
+            inputLocked = true;
+
+            // Create animated balls for each spawn
+            const newAnimBalls = [];
+            for (const { cellKey, color } of cellsAndColors) {
+                const [q, r] = cellKey.split(',').map(Number);
+                const animBall = {
+                    q, r, color,
+                    scale: 0,
+                    opacity: 1
+                };
+                animatedBalls.push(animBall);
+                newAnimBalls.push(animBall);
+            }
+
+            addAnimation(
+                (progress) => {
+                    const eased = easeOutQuad(progress);
+                    for (const ball of newAnimBalls) {
+                        ball.scale = eased;
+                    }
+                },
+                () => {
+                    // Animation complete - place balls in grid
+                    for (const ball of newAnimBalls) {
+                        const cellKey = `${Math.round(ball.q)},${Math.round(ball.r)}`;
+                        grid.set(cellKey, { color: ball.color });
+                    }
+                    animatedBalls = animatedBalls.filter(b => !newAnimBalls.includes(b));
+                    inputLocked = false;
+                    if (onComplete) onComplete();
+                },
+                180 // 180ms duration
+            );
+        }
+
+        // Animate removing balls (scale down + fade)
+        function animateRemoveBalls(cellKeys, onComplete) {
+            inputLocked = true;
+
+            // Create animated balls for each cell to remove
+            const removeAnimBalls = [];
+            for (const cellKey of cellKeys) {
+                const [q, r] = cellKey.split(',').map(Number);
+                const cell = grid.get(cellKey);
+                if (!cell) continue;
+
+                const animBall = {
+                    q, r,
+                    color: cell.color,
+                    scale: 1,
+                    opacity: 1
+                };
+                animatedBalls.push(animBall);
+                removeAnimBalls.push(animBall);
+
+                // Remove from grid immediately so it doesn't render normally
+                grid.delete(cellKey);
+            }
+
+            addAnimation(
+                (progress) => {
+                    const eased = easeInQuad(progress);
+                    for (const ball of removeAnimBalls) {
+                        ball.scale = 1 - eased;
+                        ball.opacity = 1 - eased;
+                    }
+                },
+                () => {
+                    // Animation complete - remove animated balls
+                    animatedBalls = animatedBalls.filter(b => !removeAnimBalls.includes(b));
+                    inputLocked = false;
+                    if (onComplete) onComplete();
+                },
+                220 // 220ms duration
+            );
+        }
+
+        // ====== END ANIMATION FUNCTIONS ======
 
         // BFS pathfinding
         function findPath(startKey, endKey) {
@@ -576,15 +836,13 @@
             return groupSize + (groupSize - 6) * (groupSize - 5) / 2;
         }
 
-        // Remove groups and return score
-        function checkAndRemoveGroups(cellsToCheck) {
+        // Remove groups with animation and callback
+        function checkAndRemoveGroups(cellsToCheck, callback) {
             let totalScore = 0;
-            let removed = true;
 
-            // Keep checking until no more groups form (chain reactions)
-            while (removed) {
-                removed = false;
+            function checkIteration() {
                 const checkedCells = new Set();
+                let foundGroup = null;
 
                 for (const cellKey of cellsToCheck) {
                     if (checkedCells.has(cellKey) || !grid.has(cellKey)) continue;
@@ -593,21 +851,28 @@
                     group.forEach(cell => checkedCells.add(cell));
 
                     if (group.length >= 6) {
-                        // Remove group
-                        for (const cell of group) {
-                            grid.delete(cell);
-                        }
-
-                        totalScore += calculateScore(group.length);
-                        removed = true;
+                        foundGroup = group;
+                        break; // Found a group, animate it
                     }
                 }
 
-                // After first pass, check all cells for chain reactions
-                cellsToCheck = getAllCells();
+                if (foundGroup) {
+                    // Animate removal
+                    const groupScore = calculateScore(foundGroup.length);
+                    totalScore += groupScore;
+
+                    animateRemoveBalls(foundGroup, () => {
+                        // After animation, check for chain reactions
+                        cellsToCheck = getAllCells();
+                        checkIteration();
+                    });
+                } else {
+                    // No more groups found
+                    if (callback) callback(totalScore);
+                }
             }
 
-            return totalScore;
+            checkIteration();
         }
 
         // Show game over screen
@@ -628,8 +893,8 @@
             document.getElementById('gameOver').style.display = 'block';
         }
 
-        // Spawn new balls
-        function spawnBalls() {
+        // Spawn new balls with animation
+        function spawnBalls(callback) {
             const emptyCells = getAllEmptyCells();
             const ballsToSpawn = preview.length;
 
@@ -639,38 +904,46 @@
                 return;
             }
 
-            const spawnedCells = [];
+            const cellsAndColors = [];
 
-            // Spawn the previewed balls
+            // Prepare spawn data
             for (let i = 0; i < ballsToSpawn; i++) {
                 if (emptyCells.length === 0) break;
 
                 const idx = Math.floor(Math.random() * emptyCells.length);
                 const cellKey = emptyCells.splice(idx, 1)[0];
-                grid.set(cellKey, { color: preview[i] });
-                spawnedCells.push(cellKey);
+                cellsAndColors.push({ cellKey, color: preview[i] });
             }
 
-            // Check spawned positions for new groups
-            const scoreGained = checkAndRemoveGroups(spawnedCells);
-            if (scoreGained > 0) {
-                score += scoreGained;
-                updateScore();
-            }
+            // Animate spawning
+            animateSpawnBalls(cellsAndColors, () => {
+                // After spawn animation, check for groups
+                const spawnedCells = cellsAndColors.map(item => item.cellKey);
 
-            // Generate new preview
-            preview = generatePreview();
-            updatePreviewDisplay();
+                checkAndRemoveGroups(spawnedCells, (scoreGained) => {
+                    if (scoreGained > 0) {
+                        score += scoreGained;
+                        updateScore();
+                    }
 
-            // Check if board is full
-            if (getAllEmptyCells().length === 0) {
-                showGameOver();
-            }
+                    // Generate new preview
+                    preview = generatePreview();
+                    updatePreviewDisplay();
+
+                    // Check if board is full
+                    if (getAllEmptyCells().length === 0) {
+                        showGameOver();
+                    }
+
+                    render();
+                    if (callback) callback();
+                });
+            });
         }
 
         // Handle click
         canvas.addEventListener('click', (e) => {
-            if (gameOver) return;
+            if (gameOver || inputLocked) return;
 
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -692,30 +965,33 @@
             if (selectedCell && !grid.has(cellKey)) {
                 // Check if path exists
                 if (findPath(selectedCell, cellKey)) {
-                    // Move ball
                     const ball = grid.get(selectedCell);
-                    grid.delete(selectedCell);
-                    grid.set(cellKey, ball);
-
-                    // Increment turn counter
-                    turnCount++;
-                    updateTurnDisplay();
-                    updateAvailableColors();
-
-                    // Check for groups at destination
-                    const scoreGained = checkAndRemoveGroups([cellKey]);
-
-                    if (scoreGained > 0) {
-                        // Group formed - add score, don't spawn
-                        score += scoreGained;
-                        updateScore();
-                    } else {
-                        // No group - spawn new balls
-                        spawnBalls();
-                    }
-
+                    const moveFrom = selectedCell;
                     selectedCell = null;
-                    render();
+
+                    // Animate ball movement
+                    animateMoveBall(moveFrom, cellKey, ball, () => {
+                        // Increment turn counter
+                        turnCount++;
+                        updateTurnDisplay();
+                        updateAvailableColors();
+
+                        // Check for groups at destination
+                        checkAndRemoveGroups([cellKey], (scoreGained) => {
+                            if (scoreGained > 0) {
+                                // Group formed - add score, don't spawn
+                                score += scoreGained;
+                                updateScore();
+                                render();
+                            } else {
+                                // No group - spawn new balls
+                                spawnBalls();
+                            }
+                        });
+                    });
+                } else {
+                    // Path blocked - show feedback
+                    animateBlockedMove(cellKey);
                 }
             }
         });
