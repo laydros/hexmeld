@@ -9,14 +9,13 @@
     <meta name="theme-color" content="#0b1020">
     <link rel="manifest" href="assets/manifest.webmanifest">
     <style>
-        :root{--bg:#0b1020;--panel:#11182a;--text:#e8ebf0;--muted:#93a0b4;--primary:#5b7fff;--gap:18px}
-        html{color-scheme:dark light}
-        @media (prefers-color-scheme: light){:root{--bg:#f6f7fb;--panel:#fff;--text:#0f1422;--muted:#5b667a}}
+        :root{color-scheme:dark light;--bg-dark:#0b1020;--panel-dark:#11182a;--text-dark:#e8ebf0;--muted-dark:#93a0b4;--bg-light:#f6f7fb;--panel-light:#fff;--text-light:#0f1422;--muted-light:#5b667a;--primary:#5b7fff;--gap:18px}
         *,*::before,*::after{box-sizing:border-box}
-        body{margin:0;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:var(--gap);background:var(--bg);color:var(--text);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-        body.theme-dark{color-scheme:dark}
-        body.theme-light{color-scheme:light}
-        .panel{max-width:920px;width:100%;background:var(--panel);padding:28px;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.25)}
+        body{margin:0;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:var(--gap);font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,Arial;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark);background:var(--bg);color:var(--text)}
+        body.theme-dark{color-scheme:dark;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark)}
+        body.theme-light{color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}
+        @media (prefers-color-scheme: light){body:not(.theme-dark){color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}}
+        .panel{max-width:660px;width:100%;background:var(--panel);padding:28px;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.25)}
         h1{margin:0 0 12px;font-size:2rem}
         h2{margin:2rem 0 1rem;font-size:1.35rem}
         h3{margin:1.5rem 0 .75rem;font-size:1.1rem;color:var(--muted)}
@@ -103,5 +102,8 @@
             <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View on GitHub</a>
         </footer>
     </main>
+    <script>
+        (()=>{const v=localStorage.getItem('hexmeld-theme');if(v){document.body.classList.add('theme-'+v);}})();
+    </script>
 </body>
 </html>
