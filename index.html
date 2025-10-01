@@ -128,6 +128,12 @@
             margin: 0 auto;
         }
 
+        @media (max-width: 1024px) {
+            #canvas {
+                width: 100%;
+            }
+        }
+
         #gameOver {
             position: fixed;
             top: 50%;
@@ -246,6 +252,10 @@
     </footer>
 
     <script>
+        // Version check
+        const GAME_VERSION = '1.0.2-mobile';
+        console.log('Hexmeld version:', GAME_VERSION);
+
         // Constants
         const BOARD_RADIUS = 6;
         const COLORS = [
@@ -308,19 +318,25 @@
             // Detect mobile
             isMobile = window.innerWidth < 768;
 
-            // Use minimal padding on mobile, more on desktop
-            const horizontalPadding = isMobile ? 10 : 60;
-            const availableWidth = window.innerWidth - horizontalPadding;
-            const maxHeight = window.innerHeight - 200;
+            // Minimal canvas padding
+            const canvasPadding = isMobile ? 20 : 40;
 
-            // Calculate hex size based on board radius
-            // Board width ≈ BOARD_RADIUS * 2 * hexWidth * 0.75
-            const hexCountWidth = BOARD_RADIUS * 2 + 1;
-            const hexCountHeight = BOARD_RADIUS * 2 + 1;
+            // Available space for the entire canvas
+            const availableWidth = window.innerWidth - canvasPadding;
+            const availableHeight = window.innerHeight - 200;
 
-            // Calculate max hex size that fits
-            const maxHexWidth = availableWidth / (hexCountWidth * 1.5 + 0.5);
-            const maxHexHeight = maxHeight / (hexCountHeight * Math.sqrt(3));
+            // Board dimensions: how much space the hex board actually needs
+            // Horizontal: furthest hex at q=±BOARD_RADIUS is at ±(1.5 * BOARD_RADIUS * HEX_SIZE)
+            // Plus one hex radius on each side = total of (3 * BOARD_RADIUS + 2) * HEX_SIZE
+            const boardHexWidth = 3 * BOARD_RADIUS + 2;
+
+            // Vertical: approximately (sqrt(3) * (BOARD_RADIUS * 2 + 1)) * HEX_SIZE
+            const boardHexHeight = Math.sqrt(3) * (BOARD_RADIUS * 2 + 1);
+
+            // Calculate max hex size that fits with tight padding around board
+            const boardPadding = isMobile ? 10 : 20; // Padding around the board within canvas
+            const maxHexWidth = (availableWidth - boardPadding * 2) / boardHexWidth;
+            const maxHexHeight = (availableHeight - boardPadding * 2) / boardHexHeight;
 
             HEX_SIZE = Math.min(maxHexWidth, maxHexHeight, 25);
             // Ensure minimum size of 20px for mobile touch targets
@@ -332,9 +348,9 @@
             // Update hit radius based on device type
             hitRadius = isMobile ? HEX_SIZE * 0.6 : HEX_SIZE * 0.5;
 
-            // Calculate canvas dimensions with padding
-            const canvasWidth = HEX_SIZE * 3 * (BOARD_RADIUS + 1) + HEX_SIZE;
-            const canvasHeight = Math.sqrt(3) * HEX_SIZE * (BOARD_RADIUS * 2 + 2);
+            // Calculate tight canvas dimensions: just enough for board + padding
+            const canvasWidth = boardHexWidth * HEX_SIZE + boardPadding * 2;
+            const canvasHeight = boardHexHeight * HEX_SIZE + boardPadding * 2;
 
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
