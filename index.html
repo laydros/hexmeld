@@ -56,7 +56,7 @@
         <h1 style="display:flex;gap:8px;align-items:center;margin:0">
           <img src="assets/hexmeld-icon.svg" alt="" width="24" height="24"> Hexmeld
         </h1>
-        <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong></div>
+        <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong> · Filled <strong id="filled">0</strong></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
@@ -101,12 +101,14 @@
         const elScore=document.getElementById('score');
         const elHigh=document.getElementById('high');
         const elTurn=document.getElementById('turn');
+        const elFilled=document.getElementById('filled');
         const btnAgain=document.getElementById('playAgain');
 
-        export function hudSet(score, high, turn){
+        export function hudSet(score, high, turn, filled){
           if(elScore) elScore.textContent=score|0;
           if(elHigh) elHigh.textContent=high|0;
           if(elTurn) elTurn.textContent=turn|0;
+          if(elFilled!==undefined && elFilled) elFilled.textContent=filled|0;
         }
 
         btnAgain&&btnAgain.addEventListener('click',()=>{ if(typeof restartGame==='function') restartGame(); });
@@ -114,7 +116,7 @@
         export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
 
         // Version check
-        const GAME_VERSION = '1.0.12';
+        const GAME_VERSION = '1.1.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -327,7 +329,7 @@
 
             // Load high score
             loadHighScore();
-            hudSet(score, highScore, turnCount);
+            hudSet(score, highScore, turnCount, grid.size);
 
             // Generate initial preview
             preview = generatePreview();
@@ -404,12 +406,12 @@
 
         // Update score display
         function updateScore() {
-            hudSet(score, highScore, turnCount);
+            hudSet(score, highScore, turnCount, grid.size);
         }
 
         // Update turn display
         function updateTurnDisplay() {
-            hudSet(score, highScore, turnCount);
+            hudSet(score, highScore, turnCount, grid.size);
         }
 
         // Get all valid hex cells for the board
@@ -952,7 +954,7 @@
                 highScore = score;
                 saveHighScore();
             }
-            hudSet(score, highScore, turnCount);
+            hudSet(score, highScore, turnCount, grid.size);
 
             // Display scores
             document.getElementById('finalScore').textContent = score;
