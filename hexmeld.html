@@ -32,21 +32,31 @@
         #scoreBoard {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 15px;
             font-size: 16px;
             flex-wrap: wrap;
             gap: 10px;
         }
 
-        #score, #turns {
+        .leftStats, .rightStats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .rightStats {
+            align-items: flex-end;
+        }
+
+        #score, #turns, #highScoreDisplay {
             font-weight: bold;
             font-size: 20px;
             color: #333;
         }
 
         .stat {
-            margin-right: 20px;
+            font-size: 16px;
         }
 
         #preview {
@@ -92,6 +102,22 @@
             font-size: 16px;
         }
 
+        #resetButton {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #resetButton:hover {
+            background-color: #45a049;
+        }
+
         @media (max-width: 600px) {
             body {
                 padding: 5px;
@@ -128,22 +154,24 @@
 <body>
     <div id="gameContainer">
         <div id="scoreBoard">
-            <div style="display: flex; gap: 20px;">
+            <div class="leftStats">
                 <div class="stat">Score: <span id="score">0</span></div>
-                <div class="stat">Turn: <span id="turns">0</span></div>
+                <div class="stat">High: <span id="highScoreDisplay">0</span></div>
             </div>
-            <div id="preview">
-                <span>Next:</span>
-                <div class="previewBall" id="preview0"></div>
-                <div class="previewBall" id="preview1"></div>
-                <div class="previewBall" id="preview2"></div>
+            <div class="rightStats">
+                <div id="preview">
+                    <span>Next:</span>
+                </div>
+                <div class="stat">Turn: <span id="turns">0</span></div>
             </div>
         </div>
         <canvas id="canvas"></canvas>
     </div>
     <div id="gameOver">
         GAME OVER
-        <p>Refresh to play again</p>
+        <p>Your Score: <span id="finalScore">0</span> (Turn <span id="finalTurns">0</span>)</p>
+        <p>High Score: <span id="highScore">0</span></p>
+        <button id="resetButton">Play Again</button>
     </div>
 
     <script>
@@ -160,7 +188,7 @@
             '#00FFFF'  // Turquoise
         ];
 
-        // ====== COLOR EXPANSION CONFIG (EDIT HERE FOR TESTING) ======
+        // ====== GAME CONFIG (EDIT HERE FOR TESTING) ======
         const COLOR_CONFIG = {
             startingColors: 6,  // Start with first 6 colors (0-5)
             expansions: [
@@ -168,7 +196,15 @@
                 // Add more expansions like: { afterTurn: 50, addColors: 2 }
             ]
         };
-        // ============================================================
+
+        const SPAWN_CONFIG = {
+            startingSpawnCount: 3,  // Start spawning 3 balls per turn
+            increases: [
+                { afterTurn: 40, spawnCount: 4 }  // After turn 40, spawn 4 balls per turn
+                // Add more increases like: { afterTurn: 80, spawnCount: 5 }
+            ]
+        };
+        // ==================================================
 
         // Canvas setup
         const canvas = document.getElementById('canvas');
@@ -182,6 +218,7 @@
         let availableColorCount = COLOR_CONFIG.startingColors;
         let preview = [];
         let gameOver = false;
+        let highScore = 0;
 
         // Dynamic sizing
         let HEX_SIZE = 25;
@@ -216,6 +253,17 @@
             canvas.height = canvasHeight;
         }
 
+        // Load high score from localStorage
+        function loadHighScore() {
+            const saved = localStorage.getItem('hexmeldHighScore');
+            highScore = saved ? parseInt(saved, 10) : 0;
+        }
+
+        // Save high score to localStorage
+        function saveHighScore() {
+            localStorage.setItem('hexmeldHighScore', highScore.toString());
+        }
+
         // Initialize game
         function init() {
             calculateCanvasSize();
@@ -226,6 +274,10 @@
             availableColorCount = COLOR_CONFIG.startingColors;
             gameOver = false;
             document.getElementById('gameOver').style.display = 'none';
+
+            // Load high score
+            loadHighScore();
+            document.getElementById('highScoreDisplay').textContent = highScore;
 
             // Generate initial preview
             preview = generatePreview();
@@ -259,19 +311,40 @@
             availableColorCount = Math.min(newColorCount, COLORS.length);
         }
 
-        // Generate preview of 3 random balls
+        // Get spawn count for a specific turn
+        function getSpawnCountForTurn(turn) {
+            let spawnCount = SPAWN_CONFIG.startingSpawnCount;
+            for (const increase of SPAWN_CONFIG.increases) {
+                if (turn >= increase.afterTurn) {
+                    spawnCount = increase.spawnCount;
+                }
+            }
+            return spawnCount;
+        }
+
+        // Generate preview of random balls (looks ahead to next turn's spawn count)
         function generatePreview() {
-            return [
-                Math.floor(Math.random() * availableColorCount),
-                Math.floor(Math.random() * availableColorCount),
-                Math.floor(Math.random() * availableColorCount)
-            ];
+            const nextTurnSpawnCount = getSpawnCountForTurn(turnCount + 1);
+            const previewArray = [];
+            for (let i = 0; i < nextTurnSpawnCount; i++) {
+                previewArray.push(Math.floor(Math.random() * availableColorCount));
+            }
+            return previewArray;
         }
 
         // Update preview display
         function updatePreviewDisplay() {
-            for (let i = 0; i < 3; i++) {
-                document.getElementById(`preview${i}`).style.backgroundColor = COLORS[preview[i]];
+            const previewContainer = document.getElementById('preview');
+            // Clear existing preview balls (except the "Next:" label)
+            const existingBalls = previewContainer.querySelectorAll('.previewBall');
+            existingBalls.forEach(ball => ball.remove());
+
+            // Add new preview balls
+            for (let i = 0; i < preview.length; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'previewBall';
+                ball.style.backgroundColor = COLORS[preview[i]];
+                previewContainer.appendChild(ball);
             }
         }
 
@@ -429,7 +502,7 @@
                 const [q, r] = cellKey.split(',').map(Number);
                 const pos = hexToPixel(q, r);
 
-                drawHex(pos.x, pos.y, '#eee');
+                drawHex(pos.x, pos.y, '#999');
 
                 if (grid.has(cellKey)) {
                     const cell = grid.get(cellKey);
@@ -537,21 +610,39 @@
             return totalScore;
         }
 
+        // Show game over screen
+        function showGameOver() {
+            gameOver = true;
+
+            // Update high score if needed
+            if (score > highScore) {
+                highScore = score;
+                saveHighScore();
+                document.getElementById('highScoreDisplay').textContent = highScore;
+            }
+
+            // Display scores
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalTurns').textContent = turnCount;
+            document.getElementById('highScore').textContent = highScore;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
         // Spawn new balls
         function spawnBalls() {
             const emptyCells = getAllEmptyCells();
+            const ballsToSpawn = preview.length;
 
-            if (emptyCells.length < 3) {
+            if (emptyCells.length < ballsToSpawn) {
                 // Game over - not enough space
-                gameOver = true;
-                document.getElementById('gameOver').style.display = 'block';
+                showGameOver();
                 return;
             }
 
             const spawnedCells = [];
 
-            // Spawn the 3 previewed balls
-            for (let i = 0; i < 3; i++) {
+            // Spawn the previewed balls
+            for (let i = 0; i < ballsToSpawn; i++) {
                 if (emptyCells.length === 0) break;
 
                 const idx = Math.floor(Math.random() * emptyCells.length);
@@ -573,8 +664,7 @@
 
             // Check if board is full
             if (getAllEmptyCells().length === 0) {
-                gameOver = true;
-                document.getElementById('gameOver').style.display = 'block';
+                showGameOver();
             }
         }
 
@@ -638,6 +728,11 @@
                 calculateCanvasSize();
                 render();
             }, 250);
+        });
+
+        // Handle reset button
+        document.getElementById('resetButton').addEventListener('click', () => {
+            init();
         });
 
         // Start game
