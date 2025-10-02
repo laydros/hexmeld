@@ -88,7 +88,7 @@
         </h1>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
-          <button id="playAgain" class="button" title="Restart">Play Again</button>
+          <button id="playAgain" class="button" title="Start a new game">New Game</button>
         </div>
       </div>
       <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong> · Filled <strong id="filled">0</strong></div>
@@ -108,7 +108,7 @@
         <h2>Game Over</h2>
         <p>Your Score: <span id="finalScore">0</span> · Turn <span id="finalTurns">0</span></p>
         <p>High Score: <span id="highScore">0</span></p>
-        <button id="resetButton" class="button">Play Again</button>
+        <button id="resetButton" class="button">New Game</button>
       </div>
     </div>
 
@@ -153,9 +153,12 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.2.1';
+        const GAME_VERSION = '1.3.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
+
+        const STORAGE_KEY = 'hexmeldGameState';
+        let saveGameTimeout = null;
 
         // Constants
         const BOARD_RADIUS = 6;
@@ -231,6 +234,59 @@
         let gameOver = false;
         let highScore = 0;
         let inputLocked = false; // Prevent input during animations
+
+        function persistGameState() {
+            if (typeof localStorage === 'undefined') return;
+
+            try {
+                const gridData = Array.from(grid.entries()).map(([key, cell]) => [key, cell.color]);
+                const state = {
+                    version: GAME_VERSION,
+                    grid: gridData,
+                    score,
+                    turnCount,
+                    preview: Array.isArray(preview) ? [...preview] : [],
+                    availableColorCount,
+                    gameOver,
+                    highScore
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (err) {
+                console.warn('Hexmeld: unable to save game state', err);
+            }
+        }
+
+        function queueSaveGameState() {
+            if (typeof localStorage === 'undefined') return;
+            if (saveGameTimeout) return;
+
+            saveGameTimeout = setTimeout(() => {
+                saveGameTimeout = null;
+                persistGameState();
+            }, 120);
+        }
+
+        function saveGameStateImmediately() {
+            if (typeof localStorage === 'undefined') return;
+            if (saveGameTimeout) {
+                clearTimeout(saveGameTimeout);
+                saveGameTimeout = null;
+            }
+            persistGameState();
+        }
+
+        function clearSavedGameState() {
+            if (typeof localStorage === 'undefined') return;
+            if (saveGameTimeout) {
+                clearTimeout(saveGameTimeout);
+                saveGameTimeout = null;
+            }
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+            } catch (err) {
+                console.warn('Hexmeld: unable to clear game state', err);
+            }
+        }
 
         // Animation state
         const animations = [];
@@ -420,25 +476,138 @@
             localStorage.setItem('hexmeldHighScore', highScore.toString());
         }
 
-        // Initialize game
-        function init() {
-            calculateCanvasSize();
+        function loadSavedGame() {
+            if (typeof localStorage === 'undefined') return false;
+
+            let raw;
+            try {
+                raw = localStorage.getItem(STORAGE_KEY);
+            } catch (err) {
+                console.warn('Hexmeld: unable to read saved game state', err);
+                return false;
+            }
+
+            if (!raw) return false;
+
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (err) {
+                console.warn('Hexmeld: saved game state is corrupted', err);
+                clearSavedGameState();
+                return false;
+            }
+
+            if (!data || data.version !== GAME_VERSION) {
+                clearSavedGameState();
+                return false;
+            }
+
             grid.clear();
+
+            if (Array.isArray(data.grid)) {
+                for (const entry of data.grid) {
+                    let key;
+                    let color;
+
+                    if (Array.isArray(entry)) {
+                        [key, color] = entry;
+                    } else if (entry && typeof entry === 'object') {
+                        key = entry.key;
+                        color = entry.color;
+                    }
+
+                    if (typeof key !== 'string') continue;
+
+                    const [q, r] = key.split(',').map(Number);
+                    if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) continue;
+
+                    const colorIndex = Number.isFinite(color) ? color : 0;
+                    grid.set(`${q},${r}`, { color: ((colorIndex % COLORS.length) + COLORS.length) % COLORS.length });
+                }
+            }
+
+            score = Number.isFinite(data.score) ? data.score : 0;
+            turnCount = Number.isFinite(data.turnCount) ? data.turnCount : 0;
+
+            availableColorCount = COLOR_CONFIG.startingColors;
+            updateAvailableColors();
+            const computedAvailableColors = availableColorCount;
+            if (Number.isFinite(data.availableColorCount)) {
+                const storedCount = Math.max(Math.floor(data.availableColorCount), 1);
+                availableColorCount = Math.min(Math.max(computedAvailableColors, storedCount), COLORS.length);
+            } else {
+                availableColorCount = computedAvailableColors;
+            }
+
+            if (Array.isArray(data.preview)) {
+                preview = data.preview
+                    .map(value => Number.isFinite(value) ? Math.floor(value) : 0)
+                    .map(value => ((value % COLORS.length) + COLORS.length) % COLORS.length);
+            } else {
+                preview = generatePreview();
+            }
+
+            gameOver = !!data.gameOver;
+            highScore = Math.max(highScore, Number.isFinite(data.highScore) ? data.highScore : 0);
+
+            hudSet(score, highScore, turnCount, grid.size);
+            updatePreviewDisplay();
+
+            if (gameOver) {
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('finalTurns').textContent = turnCount;
+                document.getElementById('highScore').textContent = highScore;
+                document.getElementById('gameOver').style.display = 'flex';
+            } else {
+                document.getElementById('gameOver').style.display = 'none';
+            }
+
+            render();
+            queueSaveGameState();
+            return true;
+        }
+
+        // Initialize game
+        function init(options = {}) {
+            const forceNewGame = !!options.forceNew;
+
+            calculateCanvasSize();
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            animations.length = 0;
+            animatedBalls = [];
+            blockedCell = null;
+            blockedSourceCell = null;
+            touchedHex = null;
+            inputLocked = false;
             stopSelectedBallHop();
             selectedCell = null;
-            score = 0;
-            turnCount = 0;
-            availableColorCount = COLOR_CONFIG.startingColors;
-            gameOver = false;
-            document.getElementById('gameOver').style.display = 'none';
+            selectedBallAnimation = null;
 
             // Load high score
             loadHighScore();
-            hudSet(score, highScore, turnCount, grid.size);
 
-            // Generate initial preview
+            if (!forceNewGame && loadSavedGame()) {
+                return;
+            }
+
+            if (!forceNewGame) {
+                clearSavedGameState();
+            }
+
+            grid.clear();
+            score = 0;
+            turnCount = 0;
+            availableColorCount = COLOR_CONFIG.startingColors;
             preview = generatePreview();
             updatePreviewDisplay();
+
+            gameOver = false;
+            document.getElementById('gameOver').style.display = 'none';
 
             // Place 5 starting balls
             const startBalls = 5;
@@ -455,10 +624,12 @@
             updateScore();
             updateTurnDisplay();
             render();
+            queueSaveGameState();
         }
 
         export function restartGame(){
-            init();
+            clearSavedGameState();
+            init({ forceNew: true });
         }
 
         // Update available colors based on turn count
@@ -532,16 +703,20 @@
                 ball.style.boxShadow = `inset 0 2px 3px ${rimLight}, inset 0 -2px 3px ${rimShadow}, 0 1px 2px rgba(0,0,0,0.35)`;
                 previewContainer.appendChild(ball);
             }
+
+            queueSaveGameState();
         }
 
         // Update score display
         function updateScore() {
             hudSet(score, highScore, turnCount, grid.size);
+            queueSaveGameState();
         }
 
         // Update turn display
         function updateTurnDisplay() {
             hudSet(score, highScore, turnCount, grid.size);
+            queueSaveGameState();
         }
 
         // Get all valid hex cells for the board
@@ -913,6 +1088,7 @@
                     animatedBalls = animatedBalls.filter(b => b !== animBall);
                     grid.set(finalKey, ball);
                     inputLocked = false;
+                    queueSaveGameState();
                     if (onComplete) onComplete();
                     return;
                 }
@@ -1009,6 +1185,7 @@
                     }
                     animatedBalls = animatedBalls.filter(b => !newAnimBalls.includes(b));
                     inputLocked = false;
+                    queueSaveGameState();
                     if (onComplete) onComplete();
                 },
                 180 // 180ms duration
@@ -1056,6 +1233,7 @@
                     // Animation complete - remove animated balls
                     animatedBalls = animatedBalls.filter(b => !removeAnimBalls.includes(b));
                     inputLocked = false;
+                    queueSaveGameState();
                     if (onComplete) onComplete();
                 },
                 220 // 220ms duration
@@ -1195,6 +1373,8 @@
             document.getElementById('finalTurns').textContent = turnCount;
             document.getElementById('highScore').textContent = highScore;
             document.getElementById('gameOver').style.display = 'flex';
+
+            saveGameStateImmediately();
         }
 
         // Spawn new balls with animation
@@ -1375,6 +1555,14 @@
                 calculateCanvasSize();
                 render();
             }, 250);
+        });
+
+        window.addEventListener('beforeunload', saveGameStateImmediately);
+        window.addEventListener('pagehide', saveGameStateImmediately);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                saveGameStateImmediately();
+            }
         });
 
         // Handle reset button
