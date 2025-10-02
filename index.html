@@ -17,7 +17,7 @@
         @media (prefers-color-scheme: light){body:not(.theme-dark){color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}}
         .panel{max-width:660px;width:100%;margin:0 auto;padding:12px;background:var(--panel);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 
-        .header{display:flex;justify-content:space-between;align-items:baseline;gap:var(--gap)}
+        .header{display:block}
         h1{font-size:1.4rem;margin:0}
         .meta{color:var(--muted)}
         .button{display:inline-block;padding:.5rem .75rem;border-radius:8px;border:0;font-weight:600;color:#fff;background:var(--primary);cursor:pointer;transition:transform .12s ease,filter .12s ease}
@@ -52,16 +52,16 @@
 </head>
 <body>
     <header class="panel header" role="banner">
-      <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px">
         <h1 style="display:flex;gap:8px;align-items:center;margin:0">
           <img src="assets/hexmeld-icon.svg" alt="" width="24" height="24"> Hexmeld
         </h1>
-        <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong> · Filled <strong id="filled">0</strong></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
+          <button id="playAgain" class="button" title="Restart">Play Again</button>
+        </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
-        <button id="playAgain" class="button" title="Restart">Play Again</button>
-      </div>
+      <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong> · Filled <strong id="filled">0</strong></div>
     </header>
 
     <main>
@@ -116,7 +116,7 @@
         export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
 
         // Version check
-        const GAME_VERSION = '1.1.0';
+        const GAME_VERSION = '1.1.1';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
