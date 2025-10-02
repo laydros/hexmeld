@@ -56,7 +56,7 @@
         }
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
-        #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25),inset 0 1px 2px rgba(255,255,255,.08),0 4px 8px rgba(0,0,0,.15)}
+        #canvas{width:100%;height:auto;max-width:440px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25),inset 0 1px 2px rgba(255,255,255,.08),0 4px 8px rgba(0,0,0,.15)}
         #preview{display:flex;gap:8px;align-items:center;font-weight:600}
         .previewBall{
             position:relative;
@@ -208,7 +208,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.8.0';
+        const GAME_VERSION = '1.8.1';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -509,7 +509,7 @@
             const maxHexWidth = (availableWidth - boardPadding * 2) / boardHexWidth;
             const maxHexHeight = (availableHeight - boardPadding * 2) / boardHexHeight;
 
-            const sizeCap = isMobile ? 25 : 22;
+            const sizeCap = isMobile ? 25 : 18;
             HEX_SIZE = Math.min(maxHexWidth, maxHexHeight, sizeCap);
             // Ensure minimum size of 20px for mobile touch targets
             HEX_SIZE = Math.max(HEX_SIZE, isMobile ? 20 : 10);
