@@ -40,4 +40,4 @@ Run these commands whenever the SVG icon is updated.
 
 ## License
 
-Licensed under the BSD 3-Clause License.
+Licensed under the [GNU Affero General Public License v3.0](LICENSE).

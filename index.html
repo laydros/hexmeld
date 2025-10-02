@@ -1,3 +1,22 @@
+<!--
+/*
+ * Hexmeld - A hex grid puzzle game
+ * Copyright (C) 2025 Jason Hamilton and contributors
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Affero General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,9 +82,10 @@
             transform:translate(-18%, -18%) scale(.6);
             pointer-events:none;
         }
-        footer{margin-top:auto;text-align:center;font-size:.85rem;color:var(--muted)}
+        footer{margin-top:auto;text-align:center;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;align-items:center}
         footer a{color:inherit;text-decoration:none}
         footer a:hover{text-decoration:underline}
+        .source-link{font-size:.7rem;opacity:.72}
         #versionDisplay{margin-top:6px;font-size:.75rem}
         #gameOver{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,16,32,.85);backdrop-filter:blur(4px);z-index:20}
         #gameOver .panel{max-width:360px;text-align:center}
@@ -114,10 +134,12 @@
 
     <footer>
       <div>
-        <a href="instructions.html">How to Play</a> ·
-        <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View on GitHub</a>
+        <a href="instructions.html">How to Play</a>
       </div>
       <div id="versionDisplay"></div>
+      <div class="source-link">
+        <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View Source (AGPL-3.0)</a>
+      </div>
     </footer>
 
     <script type="module">
@@ -152,7 +174,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.4.2';
+        const GAME_VERSION = '1.4.3';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
