@@ -39,7 +39,30 @@
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
         #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
         #preview{display:flex;gap:8px;align-items:center;font-weight:600}
-        .previewBall{width:22px;height:22px;border-radius:50%;border:2px solid rgba(0,0,0,.35)}
+        .previewBall{
+            position:relative;
+            width:24px;
+            height:24px;
+            border-radius:50%;
+            overflow:hidden;
+            --preview-base:#ffffff;
+            --preview-highlight:#ffffff;
+            --preview-shadow:#d0d4db;
+            --preview-rim-light:#ffffff;
+            --preview-rim-shadow:#3a4155;
+            background:radial-gradient(circle at 30% 30%, var(--preview-highlight), var(--preview-base) 58%, var(--preview-shadow));
+            border:1px solid var(--preview-rim-shadow);
+            box-shadow:inset 0 2px 3px var(--preview-rim-light), inset 0 -2px 3px var(--preview-rim-shadow), 0 1px 2px rgba(0,0,0,.35);
+        }
+        .previewBall::after{
+            content:"";
+            position:absolute;
+            inset:0;
+            border-radius:inherit;
+            background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(255,255,255,0) 55%);
+            transform:translate(-18%, -18%) scale(.6);
+            pointer-events:none;
+        }
         footer{margin-top:auto;text-align:center;font-size:.85rem;color:var(--muted)}
         footer a{color:inherit;text-decoration:none}
         footer a:hover{text-decoration:underline}
@@ -492,8 +515,21 @@
             // Add new preview balls
             for (let i = 0; i < preview.length; i++) {
                 const ball = document.createElement('div');
+                const colorIndex = preview[i] % COLORS.length;
+                const baseColor = COLORS[colorIndex] || '#FFFFFF';
+                const highlightColor = adjustColor(baseColor, 70);
+                const shadowColor = adjustColor(baseColor, -80);
+                const rimLight = adjustColor(baseColor, 95);
+                const rimShadow = adjustColor(baseColor, -110);
                 ball.className = 'previewBall';
-                ball.style.backgroundColor = COLORS[preview[i]];
+                ball.style.setProperty('--preview-base', baseColor);
+                ball.style.setProperty('--preview-highlight', highlightColor);
+                ball.style.setProperty('--preview-shadow', shadowColor);
+                ball.style.setProperty('--preview-rim-light', rimLight);
+                ball.style.setProperty('--preview-rim-shadow', rimShadow);
+                ball.style.background = `radial-gradient(circle at 30% 30%, ${highlightColor}, ${baseColor} 58%, ${shadowColor})`;
+                ball.style.borderColor = rimShadow;
+                ball.style.boxShadow = `inset 0 2px 3px ${rimLight}, inset 0 -2px 3px ${rimShadow}, 0 1px 2px rgba(0,0,0,0.35)`;
                 previewContainer.appendChild(ball);
             }
         }
@@ -725,9 +761,12 @@
 
             // Draw all hexes
             const allCells = getAllCells();
+            const deferredSelectedBalls = [];
             for (const cellKey of allCells) {
                 const [q, r] = cellKey.split(',').map(Number);
                 const pos = hexToPixel(q, r);
+                const isTouched = !!(touchedHex && touchedHex.q === q && touchedHex.r === r);
+                let touchHandled = false;
 
                 // Check if this is the blocked cell (show red flash)
                 if (blockedCell && blockedCell.q === q && blockedCell.r === r) {
@@ -758,30 +797,70 @@
                 if (grid.has(cellKey)) {
                     const cell = grid.get(cellKey);
                     const isSelected = selectedCell === cellKey;
+                    const isBlockedSource = !!(blockedSourceCell && blockedSourceCell.q === q && blockedSourceCell.r === r);
                     let drawY = pos.y;
                     let drawScale = 1;
                     if (isSelected && selectedBallAnimation && selectedBallAnimation.cellKey === cellKey) {
                         drawY += selectedBallAnimation.offsetY;
                         drawScale = selectedBallAnimation.scale;
                     }
-                    drawBall(pos.x, drawY, cell.color, isSelected, drawScale);
 
-                    // If this ball is the blocked source, add red outline flash
-                    if (blockedSourceCell && blockedSourceCell.q === q && blockedSourceCell.r === r) {
-                        const alpha = 1 - blockedSourceCell.flashProgress;
-                        ctx.save();
-                        ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
-                        ctx.lineWidth = 4;
-                        ctx.beginPath();
-                        ctx.arc(pos.x, pos.y, HEX_SIZE * 0.7, 0, Math.PI * 2);
-                        ctx.stroke();
-                        ctx.restore();
+                    if (isSelected) {
+                        deferredSelectedBalls.push({
+                            x: pos.x,
+                            y: pos.y,
+                            drawY,
+                            color: cell.color,
+                            scale: drawScale,
+                            isBlockedSource,
+                            drawTouch: isTouched,
+                            q,
+                            r
+                        });
+                        touchHandled = isTouched;
+                    } else {
+                        drawBall(pos.x, drawY, cell.color, false, drawScale);
+
+                        if (isBlockedSource) {
+                            const alpha = 1 - blockedSourceCell.flashProgress;
+                            ctx.save();
+                            ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                            ctx.lineWidth = 4;
+                            ctx.beginPath();
+                            ctx.arc(pos.x, pos.y, HEX_SIZE * 0.7, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.restore();
+                        }
+
+                        if (isTouched) {
+                            drawTouchFeedback(q, r);
+                            touchHandled = true;
+                        }
                     }
                 }
 
-                // Draw touch feedback
-                if (touchedHex && touchedHex.q === q && touchedHex.r === r) {
+                // Draw touch feedback for empty cells or deferred selections
+                if (isTouched && !touchHandled) {
                     drawTouchFeedback(q, r);
+                }
+            }
+
+            for (const selected of deferredSelectedBalls) {
+                drawBall(selected.x, selected.drawY, selected.color, true, selected.scale);
+
+                if (selected.isBlockedSource) {
+                    const alpha = 1 - blockedSourceCell.flashProgress;
+                    ctx.save();
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(selected.x, selected.y, HEX_SIZE * 0.7, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                if (selected.drawTouch) {
+                    drawTouchFeedback(selected.q, selected.r);
                 }
             }
 
