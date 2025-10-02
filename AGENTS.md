@@ -6,7 +6,7 @@ Hexmeld is a turn-based puzzle game played on a hexagonal grid. It is designed a
 
 ## Development
 
-- This game has some features to optimize it for use as a progressive web app, but the actual game should always remain functional offline, without dependencies, using just the index.html file in a modern web browser, even if some things don't work like the instructions.
+- This game includes PWA features for enhanced functionality, but the core game must always remain fully playable offline using just the `index.html` file in a modern web browser, with no external dependencies. Ancillary features like the instructions page may be unavailable in this mode, but the game itself must work.
 - Whenever you make changes to this repository, increment the `GAME_VERSION` constant in `index.html` so the displayed version is updated.
 - Game should stay fairly simple and easy to maintain.
 

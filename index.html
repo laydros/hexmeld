@@ -174,7 +174,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.4.3';
+        const GAME_VERSION = '1.4.4';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -256,6 +256,7 @@
         let selectedBallAnimation = null;
         let score = 0;
         let turnCount = 0;
+        let comboCount = 0;
         let availableColorCount = COLOR_CONFIG.startingColors;
         let preview = [];
         let gameOver = false;
@@ -629,6 +630,7 @@
             grid.clear();
             score = 0;
             turnCount = 0;
+            comboCount = 0;
             availableColorCount = COLOR_CONFIG.startingColors;
             preview = generatePreview();
             updatePreviewDisplay();
@@ -1524,22 +1526,22 @@
 
                     // Animate ball movement along the path
                     animateMoveBallAlongPath(path, ball, () => {
-                        // Increment turn counter
-                        turnCount++;
-                        updateTurnDisplay();
-                        updateAvailableColors();
-
                         // Check for groups at destination
                         checkAndRemoveGroups([cellKey], (scoreGained) => {
                             if (scoreGained > 0) {
-                                // Group formed - add score, don't spawn
-                                score += scoreGained;
+                                // Group formed - add score with combo multiplier, don't spawn
+                                comboCount++;
+                                const comboMultiplier = Math.min(1 + (comboCount - 1) * 0.5, 2.5);
+                                const finalScore = Math.floor(scoreGained * comboMultiplier);
+                                score += finalScore;
                                 updateScore();
-                                preview = generatePreview();
-                                updatePreviewDisplay();
                                 render();
                             } else {
-                                // No group - spawn new balls
+                                // No group - increment turn, reset combo, spawn new balls
+                                turnCount++;
+                                updateTurnDisplay();
+                                updateAvailableColors();
+                                comboCount = 0;
                                 spawnBalls();
                             }
                         });

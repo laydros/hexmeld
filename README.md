@@ -14,7 +14,7 @@ Score scales with group size: 6 balls = 6 points, 7 = 8 points, 8 = 11 points, e
 
 ## Running
 
-Open `index.html` in any modern web browser. Game is also available online at https://laydros.github.io/hexmeld/, and can be saved to your mobile phone homescreen as a [PWA](https://en.wikipedia.org/wiki/Progressive_web_app). However the intention is one can always grab just the `index.html` file and the game can be played in a modern web browser without any dependencies or internet access.
+Open `index.html` in any modern web browser. The game is also available online at https://laydros.github.io/hexmeld/ and can be saved to your mobile phone homescreen as a [PWA](https://en.wikipedia.org/wiki/Progressive_web_app). However, the core design principle is that the game remains fully playable by simply opening the `index.html` file in any modern web browser—no dependencies, no internet access required.
 
 ## Development
 

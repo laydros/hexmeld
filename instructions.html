@@ -46,9 +46,10 @@
         .button:hover{filter:brightness(1.08)}
         .button:active{filter:brightness(.95)}
         .color-demo{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,.4);margin-right:6px;vertical-align:middle}
-        footer{margin-top:2rem;font-size:.85rem;color:var(--muted)}
+        footer{margin-top:2rem;text-align:center;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;align-items:center}
         footer a{color:inherit;text-decoration:none}
         footer a:hover{text-decoration:underline}
+        .source-link{font-size:.7rem;opacity:.72}
         @media (max-width:768px){
             body{padding:16px 0 24px;}
             .panel{border-radius:0;}
@@ -69,8 +70,7 @@
         <ul>
             <li><strong>Select:</strong> Click on any ball to select it (it will get a black outline).</li>
             <li><strong>Move:</strong> Click on an empty hex to move the selected ball there.</li>
-            <li><strong>Path:</strong> Balls can only move to cells they can reach via empty hexes (no jumping over other balls).</li>
-            <li><strong>Blocked:</strong> If you try to move to an unreachable location, both the source ball and destination hex will flash red.</li>
+            <li><strong>Path:</strong> Balls can only move to cells they can reach via empty hexes (no jumping over other balls). If the path is blocked, the ball cannot move.</li>
         </ul>
 
         <h3>Scoring</h3>
@@ -80,13 +80,14 @@
             <li>When a group forms, the balls disappear and you earn points.</li>
             <li>Points formula: <strong>6 balls = 6 points</strong>, <strong>7 balls = 8 points</strong>, <strong>8 balls = 11 points</strong>, etc.</li>
             <li>The score increases faster with larger groups!</li>
+            <li><strong>Combo bonus:</strong> Clear groups on consecutive moves to earn score multipliers (1.5x, 2x, up to 2.5x). The combo resets when you make a move that doesn't clear any balls.</li>
         </ul>
 
         <h3>New Ball Spawning</h3>
         <ul>
-            <li>After each move (if no group formed), 3 new balls spawn in random empty locations.</li>
+            <li>After each move (if no group formed), new balls spawn in random empty locations.</li>
             <li>The <strong>"Next:"</strong> preview shows which colors will spawn next.</li>
-            <li><strong>After turn 40:</strong> 4 balls spawn instead of 3 (difficulty increases!).</li>
+            <li>The number of balls that spawn increases over time as the difficulty ramps up.</li>
             <li>If spawned balls form a group, they are removed immediately.</li>
         </ul>
 
@@ -94,7 +95,7 @@
         <p>Use <strong>New Game</strong> to start fresh. If the board still has pieces and the game isn’t over yet, Hexmeld will ask for confirmation so you don’t wipe an active board by accident. After a game ends, the button restarts immediately without the prompt.</p>
 
         <h3>Colors</h3>
-        <p>The game starts with 6 colors:</p>
+        <p>The game starts with several colors, including:</p>
         <ul>
             <li><span class="color-demo" style="background-color: #0000FF;"></span> Blue</li>
             <li><span class="color-demo" style="background-color: #FFFF00;"></span> Yellow</li>
@@ -103,7 +104,7 @@
             <li><span class="color-demo" style="background-color: #FFA500;"></span> Orange</li>
             <li><span class="color-demo" style="background-color: #800080;"></span> Purple</li>
         </ul>
-        <p><strong>After turn 20:</strong> Two more colors are added:</p>
+        <p>As the game progresses, additional colors are introduced to increase the challenge:</p>
         <ul>
             <li><span class="color-demo" style="background-color: #FFFFFF;"></span> White</li>
             <li><span class="color-demo" style="background-color: #00FFFF;"></span> Turquoise</li>
@@ -122,7 +123,12 @@
         </ul>
 
         <footer>
-            <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View on GitHub</a>
+            <div>
+                <a href="index.html">Play Game</a>
+            </div>
+            <div class="source-link">
+                <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View Source (AGPL-3.0)</a>
+            </div>
         </footer>
     </main>
     <script type="module">
