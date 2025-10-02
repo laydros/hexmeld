@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hexmeld - Hexagonal Puzzle Game</title>
     <link rel="icon" href="assets/hexmeld-icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/hexmeld-icon-180.png">
     <link rel="mask-icon" href="assets/hexmeld-icon.svg" color="#5b7fff">
     <meta name="theme-color" content="#0b1020">
     <link rel="manifest" href="assets/manifest.webmanifest">
@@ -117,7 +118,7 @@
         export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
 
         // Version check
-        const GAME_VERSION = '1.1.3';
+        const GAME_VERSION = '1.1.2';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 

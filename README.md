@@ -20,6 +20,24 @@ Open `hexmeld.html` in any modern web browser.
 
 This game was developed with AI assistance.
 
+### Generating App Icons
+
+To generate PNG icons for iOS/Android home screen support from the SVG icon:
+
+```bash
+# Option 1: Using rsvg-convert (recommended for best quality)
+rsvg-convert -w 180 -h 180 assets/hexmeld-icon.svg -o assets/hexmeld-icon-180.png
+rsvg-convert -w 192 -h 192 assets/hexmeld-icon.svg -o assets/hexmeld-icon-192.png
+rsvg-convert -w 512 -h 512 assets/hexmeld-icon.svg -o assets/hexmeld-icon-512.png
+
+# Option 2: Using Inkscape
+inkscape assets/hexmeld-icon.svg -w 180 -h 180 -o assets/hexmeld-icon-180.png
+inkscape assets/hexmeld-icon.svg -w 192 -h 192 -o assets/hexmeld-icon-192.png
+inkscape assets/hexmeld-icon.svg -w 512 -h 512 -o assets/hexmeld-icon-512.png
+```
+
+Run these commands whenever the SVG icon is updated.
+
 ## License
 
 Licensed under the BSD 3-Clause License.
