@@ -174,7 +174,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.5.0';
+        const GAME_VERSION = '1.6.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -490,6 +490,7 @@
         let blockedCell = null; // { q, r, flashProgress }
         let blockedSourceCell = null; // { q, r, flashProgress }
         let touchedHex = null; // For touch feedback
+        let floatingScores = []; // { x, y, text, opacity, offsetY }
 
         // ====== END ANIMATION FRAMEWORK ======
 
@@ -611,6 +612,7 @@
             blockedCell = null;
             blockedSourceCell = null;
             touchedHex = null;
+            floatingScores = [];
             inputLocked = false;
             stopSelectedBallHop();
             selectedCell = null;
@@ -1089,6 +1091,25 @@
                 const offsetY = ball.offsetY || 0;
                 drawBall(pos.x, pos.y + offsetY, ball.color, false, ball.scale, ball.opacity);
             }
+
+            // Draw floating scores
+            for (const floatingScore of floatingScores) {
+                ctx.save();
+                ctx.globalAlpha = floatingScore.opacity;
+                ctx.font = `bold ${HEX_SIZE * 1.2}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Draw text shadow for better visibility
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                ctx.shadowBlur = HEX_SIZE * 0.3;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                ctx.fillStyle = '#FFD700'; // Gold color
+                ctx.fillText(floatingScore.text, floatingScore.x, floatingScore.y + floatingScore.offsetY);
+                ctx.restore();
+            }
         }
 
         function redrawBoard(){
@@ -1284,6 +1305,52 @@
             );
         }
 
+        // Animate floating score text at the center of cleared group
+        function animateFloatingScore(cellKeys, scoreValue, comboMultiplier = 1) {
+            if (cellKeys.length === 0) return;
+
+            // Calculate center of the group
+            let sumX = 0, sumY = 0;
+            for (const cellKey of cellKeys) {
+                const [q, r] = cellKey.split(',').map(Number);
+                const pos = hexToPixel(q, r);
+                sumX += pos.x;
+                sumY += pos.y;
+            }
+            const centerX = sumX / cellKeys.length;
+            const centerY = sumY / cellKeys.length;
+
+            // Create text with combo indicator if applicable
+            let text = `+${scoreValue}`;
+            if (comboMultiplier > 1) {
+                text += ` (×${comboMultiplier.toFixed(1)})`;
+            }
+
+            const floatingScore = {
+                x: centerX,
+                y: centerY,
+                text,
+                opacity: 1,
+                offsetY: 0
+            };
+            floatingScores.push(floatingScore);
+
+            const duration = 800; // 800ms
+            const riseDistance = HEX_SIZE * 3;
+
+            addAnimation(
+                (progress) => {
+                    floatingScore.offsetY = -riseDistance * easeOutQuad(progress);
+                    floatingScore.opacity = 1 - easeInQuad(progress);
+                },
+                () => {
+                    // Remove from array when done
+                    floatingScores = floatingScores.filter(s => s !== floatingScore);
+                },
+                duration
+            );
+        }
+
         // ====== END ANIMATION FUNCTIONS ======
 
         // BFS pathfinding - returns path as array of cell keys, or null if no path exists
@@ -1363,7 +1430,7 @@
         }
 
         // Remove groups with animation and callback
-        function checkAndRemoveGroups(cellsToCheck, callback) {
+        function checkAndRemoveGroups(cellsToCheck, callback, onGroupCleared = null) {
             let totalScore = 0;
 
             function checkIteration() {
@@ -1386,6 +1453,11 @@
                     // Animate removal
                     const groupScore = calculateScore(foundGroup.length);
                     totalScore += groupScore;
+
+                    // Notify caller of group cleared (for score animation)
+                    if (onGroupCleared) {
+                        onGroupCleared(foundGroup, groupScore);
+                    }
 
                     animateRemoveBalls(foundGroup, () => {
                         // After animation, check for chain reactions
@@ -1486,6 +1558,9 @@
 
                     render();
                     if (callback) callback();
+                }, (groupCells, groupScore) => {
+                    // Show floating score for spawned ball groups (no combo)
+                    animateFloatingScore(groupCells, groupScore, 1);
                 });
             });
         }
@@ -1526,12 +1601,14 @@
 
                     // Animate ball movement along the path
                     animateMoveBallAlongPath(path, ball, () => {
+                        // Increment combo count optimistically
+                        comboCount++;
+                        const comboMultiplier = Math.min(1 + (comboCount - 1) * 0.5, 2.5);
+
                         // Check for groups at destination
                         checkAndRemoveGroups([cellKey], (scoreGained) => {
                             if (scoreGained > 0) {
                                 // Group formed - add score with combo multiplier, don't spawn
-                                comboCount++;
-                                const comboMultiplier = Math.min(1 + (comboCount - 1) * 0.5, 2.5);
                                 const finalScore = Math.floor(scoreGained * comboMultiplier);
                                 score += finalScore;
                                 updateScore();
@@ -1544,6 +1621,10 @@
                                 comboCount = 0;
                                 spawnBalls();
                             }
+                        }, (groupCells, groupScore) => {
+                            // Show floating score with combo multiplier
+                            const displayScore = Math.floor(groupScore * comboMultiplier);
+                            animateFloatingScore(groupCells, displayScore, comboMultiplier);
                         });
                     });
                 } else {
