@@ -27,8 +27,14 @@
         .button.ghost{background:transparent;outline:1px solid #0004;color:var(--text)}
         .button.danger{background:var(--danger)}
         .button:disabled{opacity:.5;cursor:not-allowed}
-        .flash-red{animation:flash .28s ease-in-out 0s 2}
-        @keyframes flash{50%{filter:brightness(1.8) saturate(1.4)}}
+        #canvas.shake{animation:shake .32s ease-in-out}
+        @keyframes shake{
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-4px)}
+            40%{transform:translateX(4px)}
+            60%{transform:translateX(-2px)}
+            80%{transform:translateX(2px)}
+        }
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
         #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
@@ -115,7 +121,13 @@
 
         btnAgain&&btnAgain.addEventListener('click',()=>{ if(typeof restartGame==='function') restartGame(); });
 
-        export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
+        export function flashInvalid(el){
+          if(!el) return;
+          el.classList.remove('shake');
+          void el.offsetWidth;
+          el.classList.add('shake');
+          setTimeout(()=>el.classList.remove('shake'), 360);
+        }
 
         // Version check
         const GAME_VERSION = '1.1.2';
@@ -135,6 +147,27 @@
             '#00FFFF'  // Turquoise
         ];
 
+        function adjustColor(hex, amount) {
+            if (!hex) return '#FFFFFF';
+            let color = hex.replace('#', '');
+            if (color.length === 3) {
+                color = color.split('').map(c => c + c).join('');
+            }
+
+            const num = parseInt(color, 16);
+            let r = (num >> 16) + amount;
+            let g = ((num >> 8) & 0xff) + amount;
+            let b = (num & 0xff) + amount;
+
+            const clamp = (value) => Math.max(0, Math.min(255, value));
+            r = clamp(r);
+            g = clamp(g);
+            b = clamp(b);
+
+            const toHex = (value) => value.toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+        }
+
         // ====== GAME CONFIG (EDIT HERE FOR TESTING) ======
         const COLOR_CONFIG = {
             startingColors: 6,  // Start with first 6 colors (0-5)
@@ -147,10 +180,17 @@
         const SPAWN_CONFIG = {
             startingSpawnCount: 3,  // Start spawning 3 balls per turn
             increases: [
-                { afterTurn: 40, spawnCount: 4 }  // After turn 40, spawn 4 balls per turn
-                // Add more increases like: { afterTurn: 80, spawnCount: 5 }
+                { afterTurn: 40, spawnCount: 4 }, // After turn 40, spawn 4 balls per turn
+                { afterTurn: 80, spawnCount: 5 }  // After turn 80, spawn 5 balls per turn
+            ],
+            boardThresholds: [
+                { emptyCells: 10, spawnCount: 3 }, // When ≤10 empty cells, cap spawns at 3
+                { emptyCells: 20, spawnCount: 4 }  // When ≤20 empty cells, cap spawns at 4
             ]
         };
+
+        const SPAWN_INCREASES_SORTED = [...(SPAWN_CONFIG.increases || [])].sort((a, b) => a.afterTurn - b.afterTurn);
+        const SPAWN_THRESHOLDS_SORTED = [...(SPAWN_CONFIG.boardThresholds || [])].sort((a, b) => a.emptyCells - b.emptyCells);
         // ==================================================
 
         // Canvas setup
@@ -160,6 +200,7 @@
         // Game state
         let grid = new Map();
         let selectedCell = null;
+        let selectedBallAnimation = null;
         let score = 0;
         let turnCount = 0;
         let availableColorCount = COLOR_CONFIG.startingColors;
@@ -283,6 +324,44 @@
             }
         }
 
+        function stopSelectedBallHop() {
+            if (selectedBallAnimation) {
+                selectedBallAnimation = null;
+            }
+        }
+
+        function startSelectedBallHop(cellKey) {
+            if (!cellKey) return;
+            const token = Symbol('selectedHop');
+            selectedBallAnimation = { cellKey, offsetY: 0, scale: 1, token };
+            queueSelectedBallHop(cellKey, token);
+        }
+
+        function queueSelectedBallHop(cellKey, token) {
+            const hopHeight = HEX_SIZE * 0.22;
+            const hopDuration = 420;
+
+            addAnimation(
+                (progress) => {
+                    if (!selectedBallAnimation || selectedBallAnimation.cellKey !== cellKey || selectedBallAnimation.token !== token) {
+                        return;
+                    }
+                    const hopProgress = Math.sin(progress * Math.PI);
+                    selectedBallAnimation.offsetY = -hopHeight * hopProgress;
+                    selectedBallAnimation.scale = 1 + 0.08 * hopProgress;
+                },
+                () => {
+                    if (!selectedBallAnimation || selectedBallAnimation.cellKey !== cellKey || selectedBallAnimation.token !== token) {
+                        return;
+                    }
+                    selectedBallAnimation.offsetY = 0;
+                    selectedBallAnimation.scale = 1;
+                    queueSelectedBallHop(cellKey, token);
+                },
+                hopDuration
+            );
+        }
+
         // Wait for all animations to complete
         function waitForAnimations(callback) {
             if (animations.length === 0) {
@@ -322,6 +401,7 @@
         function init() {
             calculateCanvasSize();
             grid.clear();
+            stopSelectedBallHop();
             selectedCell = null;
             score = 0;
             turnCount = 0;
@@ -369,22 +449,34 @@
             availableColorCount = Math.min(newColorCount, COLORS.length);
         }
 
-        // Get spawn count for a specific turn
-        function getSpawnCountForTurn(turn) {
+        // Get spawn count based on turn and remaining empty cells
+        function getSpawnCountForState(turn, emptyCellsCount) {
             let spawnCount = SPAWN_CONFIG.startingSpawnCount;
-            for (const increase of SPAWN_CONFIG.increases) {
+
+            for (const increase of SPAWN_INCREASES_SORTED) {
                 if (turn >= increase.afterTurn) {
                     spawnCount = increase.spawnCount;
+                } else {
+                    break;
                 }
             }
+
+            for (const threshold of SPAWN_THRESHOLDS_SORTED) {
+                if (emptyCellsCount <= threshold.emptyCells) {
+                    spawnCount = Math.min(spawnCount, threshold.spawnCount);
+                }
+            }
+
             return spawnCount;
         }
 
         // Generate preview of random balls (looks ahead to next turn's spawn count)
         function generatePreview() {
-            const nextTurnSpawnCount = getSpawnCountForTurn(turnCount + 1);
+            const emptyCellsCount = getAllEmptyCells().length;
+            const nextTurnSpawnCount = getSpawnCountForState(turnCount + 1, emptyCellsCount);
+            const spawnTotal = Math.min(nextTurnSpawnCount, emptyCellsCount);
             const previewArray = [];
-            for (let i = 0; i < nextTurnSpawnCount; i++) {
+            for (let i = 0; i < spawnTotal; i++) {
                 previewArray.push(Math.floor(Math.random() * availableColorCount));
             }
             return previewArray;
@@ -541,15 +633,60 @@
             ctx.save();
             ctx.globalAlpha = opacity;
 
+            const radius = HEX_SIZE * 0.7 * scale;
+            const baseColor = COLORS[colorIndex % COLORS.length] || '#FFFFFF';
+            const highlightColor = adjustColor(baseColor, 70);
+            const shadowColor = adjustColor(baseColor, -60);
+
+            const fillGradient = ctx.createRadialGradient(
+                centerX - radius * 0.35,
+                centerY - radius * 0.4,
+                radius * 0.15,
+                centerX,
+                centerY,
+                radius
+            );
+            fillGradient.addColorStop(0, highlightColor);
+            fillGradient.addColorStop(0.55, baseColor);
+            fillGradient.addColorStop(1, shadowColor);
+
             ctx.beginPath();
-            ctx.arc(centerX, centerY, HEX_SIZE * 0.7 * scale, 0, Math.PI * 2);
-            ctx.fillStyle = COLORS[colorIndex];
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = fillGradient;
+            ctx.fill();
+
+            const rimGradient = ctx.createLinearGradient(centerX, centerY - radius, centerX, centerY + radius);
+            rimGradient.addColorStop(0, 'rgba(255,255,255,0.35)');
+            rimGradient.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+            rimGradient.addColorStop(1, 'rgba(0,0,0,0.35)');
+
+            ctx.strokeStyle = rimGradient;
+            ctx.lineWidth = Math.max(1, HEX_SIZE * 0.06 * scale);
+            ctx.stroke();
+
+            const glintRadius = radius * 0.38;
+            const glintX = centerX - radius * 0.4;
+            const glintY = centerY - radius * 0.45;
+            const glintGradient = ctx.createRadialGradient(glintX, glintY, 0, glintX, glintY, glintRadius);
+            glintGradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+            glintGradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+            ctx.beginPath();
+            ctx.arc(glintX, glintY, glintRadius, 0, Math.PI * 2);
+            ctx.fillStyle = glintGradient;
             ctx.fill();
 
             if (isSelected) {
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 3;
+                ctx.save();
+                const outlineRadius = radius + Math.max(2, HEX_SIZE * 0.1 * scale);
+                ctx.lineWidth = Math.max(2, HEX_SIZE * 0.12 * scale);
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.shadowColor = 'rgba(0,0,0,0.45)';
+                ctx.shadowBlur = HEX_SIZE * 0.35;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, outlineRadius, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.restore();
             }
 
             ctx.restore();
@@ -580,6 +717,11 @@
         // Render the game
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (selectedCell && !grid.has(selectedCell)) {
+                stopSelectedBallHop();
+                selectedCell = null;
+            }
 
             // Draw all hexes
             const allCells = getAllCells();
@@ -616,7 +758,13 @@
                 if (grid.has(cellKey)) {
                     const cell = grid.get(cellKey);
                     const isSelected = selectedCell === cellKey;
-                    drawBall(pos.x, pos.y, cell.color, isSelected);
+                    let drawY = pos.y;
+                    let drawScale = 1;
+                    if (isSelected && selectedBallAnimation && selectedBallAnimation.cellKey === cellKey) {
+                        drawY += selectedBallAnimation.offsetY;
+                        drawScale = selectedBallAnimation.scale;
+                    }
+                    drawBall(pos.x, drawY, cell.color, isSelected, drawScale);
 
                     // If this ball is the blocked source, add red outline flash
                     if (blockedSourceCell && blockedSourceCell.q === q && blockedSourceCell.r === r) {
@@ -735,7 +883,7 @@
             const [srcQ, srcR] = sourceKey.split(',').map(Number);
             blockedCell = { q: destQ, r: destR, flashProgress: 0 };
             blockedSourceCell = { q: srcQ, r: srcR, flashProgress: 0 };
-            flashInvalid(document.getElementById('gameContainer'));
+            flashInvalid(canvas);
 
             addAnimation(
                 (progress) => {
@@ -798,6 +946,11 @@
                 const [q, r] = cellKey.split(',').map(Number);
                 const cell = grid.get(cellKey);
                 if (!cell) continue;
+
+                if (cellKey === selectedCell) {
+                    stopSelectedBallHop();
+                    selectedCell = null;
+                }
 
                 const animBall = {
                     q, r,
@@ -968,6 +1121,27 @@
         // Spawn new balls with animation
         function spawnBalls(callback) {
             const emptyCells = getAllEmptyCells();
+            const spawnCount = getSpawnCountForState(turnCount, emptyCells.length);
+
+            if (spawnCount <= 0) {
+                preview = generatePreview();
+                updatePreviewDisplay();
+                render();
+                if (callback) callback();
+                return;
+            }
+
+            if (preview.length > spawnCount) {
+                preview = preview.slice(0, spawnCount);
+                updatePreviewDisplay();
+            } else if (preview.length < spawnCount) {
+                const needed = spawnCount - preview.length;
+                for (let i = 0; i < needed; i++) {
+                    preview.push(Math.floor(Math.random() * availableColorCount));
+                }
+                updatePreviewDisplay();
+            }
+
             const ballsToSpawn = preview.length;
 
             if (emptyCells.length < ballsToSpawn) {
@@ -1033,6 +1207,7 @@
             // If clicking on a ball
             if (grid.has(cellKey)) {
                 selectedCell = cellKey;
+                startSelectedBallHop(cellKey);
                 render();
                 return;
             }
@@ -1043,6 +1218,7 @@
                 const path = findPath(selectedCell, cellKey);
                 if (path) {
                     const ball = grid.get(selectedCell);
+                    stopSelectedBallHop();
                     selectedCell = null;
 
                     // Animate ball movement along the path
@@ -1058,6 +1234,8 @@
                                 // Group formed - add score, don't spawn
                                 score += scoreGained;
                                 updateScore();
+                                preview = generatePreview();
+                                updatePreviewDisplay();
                                 render();
                             } else {
                                 // No group - spawn new balls
