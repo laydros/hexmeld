@@ -27,8 +27,14 @@
         .button.ghost{background:transparent;outline:1px solid #0004;color:var(--text)}
         .button.danger{background:var(--danger)}
         .button:disabled{opacity:.5;cursor:not-allowed}
-        .flash-red{animation:flash .28s ease-in-out 0s 2}
-        @keyframes flash{50%{filter:brightness(1.8) saturate(1.4)}}
+        #canvas.shake{animation:shake .32s ease-in-out}
+        @keyframes shake{
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-6px)}
+            40%{transform:translateX(6px)}
+            60%{transform:translateX(-4px)}
+            80%{transform:translateX(4px)}
+        }
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
         #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
@@ -115,7 +121,13 @@
 
         btnAgain&&btnAgain.addEventListener('click',()=>{ if(typeof restartGame==='function') restartGame(); });
 
-        export function flashInvalid(el){ if(!el) return; el.classList.add('flash-red'); setTimeout(()=>el.classList.remove('flash-red'), 400); }
+        export function flashInvalid(el){
+          if(!el) return;
+          el.classList.remove('shake');
+          void el.offsetWidth;
+          el.classList.add('shake');
+          setTimeout(()=>el.classList.remove('shake'), 360);
+        }
 
         // Version check
         const GAME_VERSION = '1.1.2';
@@ -147,10 +159,17 @@
         const SPAWN_CONFIG = {
             startingSpawnCount: 3,  // Start spawning 3 balls per turn
             increases: [
-                { afterTurn: 40, spawnCount: 4 }  // After turn 40, spawn 4 balls per turn
-                // Add more increases like: { afterTurn: 80, spawnCount: 5 }
+                { afterTurn: 40, spawnCount: 4 }, // After turn 40, spawn 4 balls per turn
+                { afterTurn: 80, spawnCount: 5 }  // After turn 80, spawn 5 balls per turn
+            ],
+            boardThresholds: [
+                { emptyCells: 10, spawnCount: 3 }, // When ≤10 empty cells, cap spawns at 3
+                { emptyCells: 20, spawnCount: 4 }  // When ≤20 empty cells, cap spawns at 4
             ]
         };
+
+        const SPAWN_INCREASES_SORTED = [...(SPAWN_CONFIG.increases || [])].sort((a, b) => a.afterTurn - b.afterTurn);
+        const SPAWN_THRESHOLDS_SORTED = [...(SPAWN_CONFIG.boardThresholds || [])].sort((a, b) => a.emptyCells - b.emptyCells);
         // ==================================================
 
         // Canvas setup
@@ -369,22 +388,34 @@
             availableColorCount = Math.min(newColorCount, COLORS.length);
         }
 
-        // Get spawn count for a specific turn
-        function getSpawnCountForTurn(turn) {
+        // Get spawn count based on turn and remaining empty cells
+        function getSpawnCountForState(turn, emptyCellsCount) {
             let spawnCount = SPAWN_CONFIG.startingSpawnCount;
-            for (const increase of SPAWN_CONFIG.increases) {
+
+            for (const increase of SPAWN_INCREASES_SORTED) {
                 if (turn >= increase.afterTurn) {
                     spawnCount = increase.spawnCount;
+                } else {
+                    break;
                 }
             }
+
+            for (const threshold of SPAWN_THRESHOLDS_SORTED) {
+                if (emptyCellsCount <= threshold.emptyCells) {
+                    spawnCount = Math.min(spawnCount, threshold.spawnCount);
+                }
+            }
+
             return spawnCount;
         }
 
         // Generate preview of random balls (looks ahead to next turn's spawn count)
         function generatePreview() {
-            const nextTurnSpawnCount = getSpawnCountForTurn(turnCount + 1);
+            const emptyCellsCount = getAllEmptyCells().length;
+            const nextTurnSpawnCount = getSpawnCountForState(turnCount + 1, emptyCellsCount);
+            const spawnTotal = Math.min(nextTurnSpawnCount, emptyCellsCount);
             const previewArray = [];
-            for (let i = 0; i < nextTurnSpawnCount; i++) {
+            for (let i = 0; i < spawnTotal; i++) {
                 previewArray.push(Math.floor(Math.random() * availableColorCount));
             }
             return previewArray;
@@ -735,7 +766,7 @@
             const [srcQ, srcR] = sourceKey.split(',').map(Number);
             blockedCell = { q: destQ, r: destR, flashProgress: 0 };
             blockedSourceCell = { q: srcQ, r: srcR, flashProgress: 0 };
-            flashInvalid(document.getElementById('gameContainer'));
+            flashInvalid(canvas);
 
             addAnimation(
                 (progress) => {
@@ -968,6 +999,27 @@
         // Spawn new balls with animation
         function spawnBalls(callback) {
             const emptyCells = getAllEmptyCells();
+            const spawnCount = getSpawnCountForState(turnCount, emptyCells.length);
+
+            if (spawnCount <= 0) {
+                preview = generatePreview();
+                updatePreviewDisplay();
+                render();
+                if (callback) callback();
+                return;
+            }
+
+            if (preview.length > spawnCount) {
+                preview = preview.slice(0, spawnCount);
+                updatePreviewDisplay();
+            } else if (preview.length < spawnCount) {
+                const needed = spawnCount - preview.length;
+                for (let i = 0; i < needed; i++) {
+                    preview.push(Math.floor(Math.random() * availableColorCount));
+                }
+                updatePreviewDisplay();
+            }
+
             const ballsToSpawn = preview.length;
 
             if (emptyCells.length < ballsToSpawn) {
@@ -1058,6 +1110,8 @@
                                 // Group formed - add score, don't spawn
                                 score += scoreGained;
                                 updateScore();
+                                preview = generatePreview();
+                                updatePreviewDisplay();
                                 render();
                             } else {
                                 // No group - spawn new balls
