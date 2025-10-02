@@ -88,7 +88,7 @@
         </h1>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
-          <button id="playAgain" class="button" title="Start a new game">New Game</button>
+          <button id="playAgain" class="button" title="Start a new game (asks for confirmation if the board is active)">New Game</button>
         </div>
       </div>
       <div class="meta">Score <strong id="score">0</strong> · High <strong id="high">0</strong> · Turn <strong id="turn">0</strong> · Filled <strong id="filled">0</strong></div>
@@ -108,7 +108,7 @@
         <h2>Game Over</h2>
         <p>Your Score: <span id="finalScore">0</span> · Turn <span id="finalTurns">0</span></p>
         <p>High Score: <span id="highScore">0</span></p>
-        <button id="resetButton" class="button">New Game</button>
+        <button id="resetButton" class="button" title="Start a new game (asks for confirmation if the board is active)">New Game</button>
       </div>
     </div>
 
@@ -134,6 +134,7 @@
         const elTurn=document.getElementById('turn');
         const elFilled=document.getElementById('filled');
         const btnAgain=document.getElementById('playAgain');
+        const resetButton=document.getElementById('resetButton');
 
         export function hudSet(score, high, turn, filled){
           if(elScore) elScore.textContent=score|0;
@@ -141,8 +142,6 @@
           if(elTurn) elTurn.textContent=turn|0;
           if(elFilled!==undefined && elFilled) elFilled.textContent=filled|0;
         }
-
-        btnAgain&&btnAgain.addEventListener('click',()=>{ if(typeof restartGame==='function') restartGame(); });
 
         export function flashInvalid(el){
           if(!el) return;
@@ -153,7 +152,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.4.1';
+        const GAME_VERSION = '1.4.2';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -636,6 +635,21 @@
         export function restartGame(){
             clearSavedGameState();
             init({ forceNew: true });
+        }
+
+        const RESTART_CONFIRM_MESSAGE = 'Start a new game? This will clear your current board progress.';
+
+        function requestRestartGame(){
+            const hasPieces = grid && grid.size > 0;
+
+            if (gameOver || !hasPieces) {
+                restartGame();
+                return;
+            }
+
+            if (window.confirm(RESTART_CONFIRM_MESSAGE)) {
+                restartGame();
+            }
         }
 
         // Update available colors based on turn count
@@ -1571,10 +1585,9 @@
             }
         });
 
-        // Handle reset button
-        document.getElementById('resetButton').addEventListener('click', () => {
-            restartGame();
-        });
+        // New game controls
+        btnAgain&&btnAgain.addEventListener('click', requestRestartGame);
+        resetButton&&resetButton.addEventListener('click', requestRestartGame);
 
         // Start game
         init();
