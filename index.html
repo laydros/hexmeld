@@ -153,9 +153,15 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.3.0';
+        const GAME_VERSION = '1.4.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('service-worker.js').catch((error) => {
+            console.error('Hexmeld service worker registration failed:', error);
+          });
+        }
 
         const STORAGE_KEY = 'hexmeldGameState';
         let saveGameTimeout = null;
