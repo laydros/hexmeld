@@ -130,7 +130,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.1.2';
+        const GAME_VERSION = '1.2.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -146,6 +146,27 @@
             '#FFFFFF', // White
             '#00FFFF'  // Turquoise
         ];
+
+        function adjustColor(hex, amount) {
+            if (!hex) return '#FFFFFF';
+            let color = hex.replace('#', '');
+            if (color.length === 3) {
+                color = color.split('').map(c => c + c).join('');
+            }
+
+            const num = parseInt(color, 16);
+            let r = (num >> 16) + amount;
+            let g = ((num >> 8) & 0xff) + amount;
+            let b = (num & 0xff) + amount;
+
+            const clamp = (value) => Math.max(0, Math.min(255, value));
+            r = clamp(r);
+            g = clamp(g);
+            b = clamp(b);
+
+            const toHex = (value) => value.toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+        }
 
         // ====== GAME CONFIG (EDIT HERE FOR TESTING) ======
         const COLOR_CONFIG = {
@@ -179,6 +200,7 @@
         // Game state
         let grid = new Map();
         let selectedCell = null;
+        let selectedBallAnimation = null;
         let score = 0;
         let turnCount = 0;
         let availableColorCount = COLOR_CONFIG.startingColors;
@@ -302,6 +324,44 @@
             }
         }
 
+        function stopSelectedBallHop() {
+            if (selectedBallAnimation) {
+                selectedBallAnimation = null;
+            }
+        }
+
+        function startSelectedBallHop(cellKey) {
+            if (!cellKey) return;
+            const token = Symbol('selectedHop');
+            selectedBallAnimation = { cellKey, offsetY: 0, scale: 1, token };
+            queueSelectedBallHop(cellKey, token);
+        }
+
+        function queueSelectedBallHop(cellKey, token) {
+            const hopHeight = HEX_SIZE * 0.22;
+            const hopDuration = 420;
+
+            addAnimation(
+                (progress) => {
+                    if (!selectedBallAnimation || selectedBallAnimation.cellKey !== cellKey || selectedBallAnimation.token !== token) {
+                        return;
+                    }
+                    const hopProgress = Math.sin(progress * Math.PI);
+                    selectedBallAnimation.offsetY = -hopHeight * hopProgress;
+                    selectedBallAnimation.scale = 1 + 0.08 * hopProgress;
+                },
+                () => {
+                    if (!selectedBallAnimation || selectedBallAnimation.cellKey !== cellKey || selectedBallAnimation.token !== token) {
+                        return;
+                    }
+                    selectedBallAnimation.offsetY = 0;
+                    selectedBallAnimation.scale = 1;
+                    queueSelectedBallHop(cellKey, token);
+                },
+                hopDuration
+            );
+        }
+
         // Wait for all animations to complete
         function waitForAnimations(callback) {
             if (animations.length === 0) {
@@ -341,6 +401,7 @@
         function init() {
             calculateCanvasSize();
             grid.clear();
+            stopSelectedBallHop();
             selectedCell = null;
             score = 0;
             turnCount = 0;
@@ -572,15 +633,60 @@
             ctx.save();
             ctx.globalAlpha = opacity;
 
+            const radius = HEX_SIZE * 0.7 * scale;
+            const baseColor = COLORS[colorIndex % COLORS.length] || '#FFFFFF';
+            const highlightColor = adjustColor(baseColor, 70);
+            const shadowColor = adjustColor(baseColor, -60);
+
+            const fillGradient = ctx.createRadialGradient(
+                centerX - radius * 0.35,
+                centerY - radius * 0.4,
+                radius * 0.15,
+                centerX,
+                centerY,
+                radius
+            );
+            fillGradient.addColorStop(0, highlightColor);
+            fillGradient.addColorStop(0.55, baseColor);
+            fillGradient.addColorStop(1, shadowColor);
+
             ctx.beginPath();
-            ctx.arc(centerX, centerY, HEX_SIZE * 0.7 * scale, 0, Math.PI * 2);
-            ctx.fillStyle = COLORS[colorIndex];
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = fillGradient;
+            ctx.fill();
+
+            const rimGradient = ctx.createLinearGradient(centerX, centerY - radius, centerX, centerY + radius);
+            rimGradient.addColorStop(0, 'rgba(255,255,255,0.35)');
+            rimGradient.addColorStop(0.5, 'rgba(255,255,255,0.08)');
+            rimGradient.addColorStop(1, 'rgba(0,0,0,0.35)');
+
+            ctx.strokeStyle = rimGradient;
+            ctx.lineWidth = Math.max(1, HEX_SIZE * 0.06 * scale);
+            ctx.stroke();
+
+            const glintRadius = radius * 0.38;
+            const glintX = centerX - radius * 0.4;
+            const glintY = centerY - radius * 0.45;
+            const glintGradient = ctx.createRadialGradient(glintX, glintY, 0, glintX, glintY, glintRadius);
+            glintGradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+            glintGradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+            ctx.beginPath();
+            ctx.arc(glintX, glintY, glintRadius, 0, Math.PI * 2);
+            ctx.fillStyle = glintGradient;
             ctx.fill();
 
             if (isSelected) {
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 3;
+                ctx.save();
+                const outlineRadius = radius + Math.max(2, HEX_SIZE * 0.1 * scale);
+                ctx.lineWidth = Math.max(2, HEX_SIZE * 0.12 * scale);
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.shadowColor = 'rgba(0,0,0,0.45)';
+                ctx.shadowBlur = HEX_SIZE * 0.35;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, outlineRadius, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.restore();
             }
 
             ctx.restore();
@@ -611,6 +717,11 @@
         // Render the game
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (selectedCell && !grid.has(selectedCell)) {
+                stopSelectedBallHop();
+                selectedCell = null;
+            }
 
             // Draw all hexes
             const allCells = getAllCells();
@@ -647,7 +758,13 @@
                 if (grid.has(cellKey)) {
                     const cell = grid.get(cellKey);
                     const isSelected = selectedCell === cellKey;
-                    drawBall(pos.x, pos.y, cell.color, isSelected);
+                    let drawY = pos.y;
+                    let drawScale = 1;
+                    if (isSelected && selectedBallAnimation && selectedBallAnimation.cellKey === cellKey) {
+                        drawY += selectedBallAnimation.offsetY;
+                        drawScale = selectedBallAnimation.scale;
+                    }
+                    drawBall(pos.x, drawY, cell.color, isSelected, drawScale);
 
                     // If this ball is the blocked source, add red outline flash
                     if (blockedSourceCell && blockedSourceCell.q === q && blockedSourceCell.r === r) {
@@ -829,6 +946,11 @@
                 const [q, r] = cellKey.split(',').map(Number);
                 const cell = grid.get(cellKey);
                 if (!cell) continue;
+
+                if (cellKey === selectedCell) {
+                    stopSelectedBallHop();
+                    selectedCell = null;
+                }
 
                 const animBall = {
                     q, r,
@@ -1085,6 +1207,7 @@
             // If clicking on a ball
             if (grid.has(cellKey)) {
                 selectedCell = cellKey;
+                startSelectedBallHop(cellKey);
                 render();
                 return;
             }
@@ -1095,6 +1218,7 @@
                 const path = findPath(selectedCell, cellKey);
                 if (path) {
                     const ball = grid.get(selectedCell);
+                    stopSelectedBallHop();
                     selectedCell = null;
 
                     // Animate ball movement along the path
