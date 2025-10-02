@@ -56,7 +56,7 @@
         }
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
-        #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25)}
+        #canvas{width:100%;height:auto;max-width:520px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25),inset 0 1px 2px rgba(255,255,255,.08),0 4px 8px rgba(0,0,0,.15)}
         #preview{display:flex;gap:8px;align-items:center;font-weight:600}
         .previewBall{
             position:relative;
@@ -144,12 +144,44 @@
     </footer>
 
     <script type="module">
-        // Theme toggle: cycles system → dark → light (persists)
-        (()=>{const k='hexmeld-theme',b=document.body,t=document.getElementById('themeToggle');
-        let currentTheme=localStorage.getItem(k);
-        const apply=v=>{currentTheme=v;b.classList.remove('theme-dark','theme-light');if(v) b.classList.add('theme-'+v);if(t) t.setAttribute('aria-pressed',v?'true':'false');};
-        apply(currentTheme);
-        t&&t.addEventListener('click',()=>{const v=currentTheme==='dark'?'light':currentTheme==='light'?null:'dark';apply(v);v?localStorage.setItem(k,v):localStorage.removeItem(k);});})();
+        // Theme toggle: toggles between dark and light (persists)
+        (()=>{
+            const k='hexmeld-theme',b=document.body;
+            let currentTheme=localStorage.getItem(k);
+
+            // Default to dark if no preference set
+            if(!currentTheme){
+                currentTheme='dark';
+                localStorage.setItem(k,currentTheme);
+            }
+
+            const apply=v=>{
+                currentTheme=v;
+                b.classList.remove('theme-dark','theme-light');
+                b.classList.add('theme-'+v);
+                const t=document.getElementById('themeToggle');
+                if(t) t.setAttribute('aria-pressed','true');
+            };
+            apply(currentTheme);
+
+            // Ensure button exists before attaching listener
+            const setupButton=()=>{
+                const t=document.getElementById('themeToggle');
+                if(t){
+                    t.addEventListener('click',()=>{
+                        const v=currentTheme==='dark'?'light':'dark';
+                        apply(v);
+                        localStorage.setItem(k,v);
+                    });
+                }
+            };
+
+            if(document.readyState==='loading'){
+                document.addEventListener('DOMContentLoaded',setupButton);
+            }else{
+                setupButton();
+            }
+        })();
 
         // HUD refs
         const elScore=document.getElementById('score');
@@ -176,7 +208,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.7.1';
+        const GAME_VERSION = '1.8.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -1052,7 +1084,18 @@
             ctx.closePath();
 
             if (fill) {
-                ctx.fillStyle = fill;
+                // Add subtle radial gradient for depth
+                const gradient = ctx.createRadialGradient(
+                    centerX - HEX_SIZE * 0.3,
+                    centerY - HEX_SIZE * 0.3,
+                    0,
+                    centerX,
+                    centerY,
+                    HEX_SIZE
+                );
+                gradient.addColorStop(0, adjustColor(fill, 15));
+                gradient.addColorStop(1, adjustColor(fill, -10));
+                ctx.fillStyle = gradient;
                 ctx.fill();
             }
 
