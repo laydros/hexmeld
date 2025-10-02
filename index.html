@@ -108,6 +108,7 @@
         </h1>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="themeToggle" class="button ghost" aria-pressed="false" title="Toggle theme">Theme</button>
+          <button id="undoButton" class="button ghost" title="Undo the last completed turn" disabled>Undo</button>
           <button id="playAgain" class="button" title="Start a new game (asks for confirmation if the board is active)">New Game</button>
         </div>
       </div>
@@ -155,6 +156,7 @@
         const elHigh=document.getElementById('high');
         const elTurn=document.getElementById('turn');
         const elFilled=document.getElementById('filled');
+        const btnUndo=document.getElementById('undoButton');
         const btnAgain=document.getElementById('playAgain');
         const resetButton=document.getElementById('resetButton');
 
@@ -174,7 +176,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.6.0';
+        const GAME_VERSION = '1.7.1';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -259,6 +261,7 @@
         let comboCount = 0;
         let availableColorCount = COLOR_CONFIG.startingColors;
         let preview = [];
+        let lastTurnSnapshot = null;
         let gameOver = false;
         let highScore = 0;
         let inputLocked = false; // Prevent input during animations
@@ -268,15 +271,24 @@
 
             try {
                 const gridData = Array.from(grid.entries()).map(([key, cell]) => [key, cell.color]);
+                const storedScore = Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
+                const storedTurn = Number.isFinite(turnCount) ? Math.max(0, Math.floor(turnCount)) : 0;
+                const storedCombo = Number.isFinite(comboCount) ? Math.max(0, Math.floor(comboCount)) : 0;
+                const storedAvailableColors = Number.isFinite(availableColorCount)
+                    ? Math.min(Math.max(Math.floor(availableColorCount), 1), COLORS.length)
+                    : COLOR_CONFIG.startingColors;
+
                 const state = {
                     version: GAME_VERSION,
                     grid: gridData,
-                    score,
-                    turnCount,
-                    preview: Array.isArray(preview) ? [...preview] : [],
-                    availableColorCount,
+                    score: storedScore,
+                    turnCount: storedTurn,
+                    preview: clonePreviewArray(preview),
+                    availableColorCount: storedAvailableColors,
                     gameOver,
-                    highScore
+                    highScore,
+                    comboCount: storedCombo,
+                    history: serializeSnapshot(lastTurnSnapshot)
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             } catch (err) {
@@ -314,6 +326,118 @@
             } catch (err) {
                 console.warn('Hexmeld: unable to clear game state', err);
             }
+        }
+
+        function normalizeColorIndex(value) {
+            const len = COLORS.length || 1;
+            const num = Number.isFinite(value) ? Math.floor(value) : 0;
+            return ((num % len) + len) % len;
+        }
+
+        function clonePreviewArray(values) {
+            if (!Array.isArray(values)) return [];
+            return values.map(normalizeColorIndex);
+        }
+
+        function cloneGridState(sourceGrid) {
+            const clone = new Map();
+            if (!sourceGrid) return clone;
+
+            for (const [key, cell] of sourceGrid.entries()) {
+                if (typeof key !== 'string') continue;
+                const [q, r] = key.split(',').map(Number);
+                if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) continue;
+                const colorIndex = cell && Number.isFinite(cell.color) ? cell.color : 0;
+                clone.set(`${q},${r}`, { color: normalizeColorIndex(colorIndex) });
+            }
+
+            return clone;
+        }
+
+        function createTurnSnapshot() {
+            return {
+                grid: cloneGridState(grid),
+                score,
+                turnCount,
+                preview: clonePreviewArray(preview),
+                availableColorCount,
+                gameOver,
+                comboCount
+            };
+        }
+
+        function serializeSnapshot(snapshot) {
+            if (!snapshot) return null;
+
+            return {
+                grid: Array.from(snapshot.grid.entries()).map(([key, cell]) => [key, cell.color]),
+                score: Number.isFinite(snapshot.score) ? Math.max(0, Math.floor(snapshot.score)) : 0,
+                turnCount: Number.isFinite(snapshot.turnCount) ? Math.max(0, Math.floor(snapshot.turnCount)) : 0,
+                preview: clonePreviewArray(snapshot.preview),
+                availableColorCount: Number.isFinite(snapshot.availableColorCount)
+                    ? Math.min(Math.max(Math.floor(snapshot.availableColorCount), 1), COLORS.length)
+                    : COLOR_CONFIG.startingColors,
+                gameOver: !!snapshot.gameOver,
+                comboCount: Number.isFinite(snapshot.comboCount) ? Math.max(0, Math.floor(snapshot.comboCount)) : 0
+            };
+        }
+
+        function deserializeSnapshot(data) {
+            if (!data) return null;
+
+            const entry = Array.isArray(data) ? data[data.length - 1] : data;
+            if (!entry || typeof entry !== 'object') return null;
+
+            const snapshotGrid = new Map();
+            if (Array.isArray(entry.grid)) {
+                for (const cellEntry of entry.grid) {
+                    let key;
+                    let color;
+
+                    if (Array.isArray(cellEntry)) {
+                        [key, color] = cellEntry;
+                    } else if (cellEntry && typeof cellEntry === 'object') {
+                        key = cellEntry.key;
+                        color = cellEntry.color;
+                    }
+
+                    if (typeof key !== 'string') continue;
+                    const [q, r] = key.split(',').map(Number);
+                    if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) continue;
+
+                    snapshotGrid.set(`${q},${r}`, { color: normalizeColorIndex(color) });
+                }
+            }
+
+            return {
+                grid: snapshotGrid,
+                score: Number.isFinite(entry.score) ? Math.max(0, Math.floor(entry.score)) : 0,
+                turnCount: Number.isFinite(entry.turnCount) ? Math.max(0, Math.floor(entry.turnCount)) : 0,
+                preview: clonePreviewArray(entry.preview),
+                availableColorCount: Number.isFinite(entry.availableColorCount)
+                    ? Math.min(Math.max(Math.floor(entry.availableColorCount), 1), COLORS.length)
+                    : COLOR_CONFIG.startingColors,
+                gameOver: !!entry.gameOver,
+                comboCount: Number.isFinite(entry.comboCount) ? Math.max(0, Math.floor(entry.comboCount)) : 0
+            };
+        }
+
+        function updateUndoButtonState() {
+            if (!btnUndo) return;
+            const isDisabled = !lastTurnSnapshot;
+            btnUndo.disabled = isDisabled;
+            btnUndo.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+        }
+
+        function pushTurnSnapshot() {
+            lastTurnSnapshot = createTurnSnapshot();
+            updateUndoButtonState();
+            queueSaveGameState();
+        }
+
+        function loadUndoSnapshot(storedSnapshot) {
+            lastTurnSnapshot = deserializeSnapshot(storedSnapshot);
+            updateUndoButtonState();
         }
 
         // Animation state
@@ -492,6 +616,54 @@
         let touchedHex = null; // For touch feedback
         let floatingScores = []; // { x, y, text, opacity, offsetY }
 
+        function undoLastTurn() {
+            if (!lastTurnSnapshot) return;
+
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            animations.length = 0;
+            animatedBalls = [];
+            floatingScores = [];
+            blockedCell = null;
+            blockedSourceCell = null;
+            touchedHex = null;
+            stopSelectedBallHop();
+            selectedCell = null;
+            selectedBallAnimation = null;
+            inputLocked = false;
+
+            const snapshot = lastTurnSnapshot;
+            lastTurnSnapshot = null;
+
+            grid = cloneGridState(snapshot.grid);
+            score = Number.isFinite(snapshot.score) ? Math.max(0, Math.floor(snapshot.score)) : 0;
+            turnCount = Number.isFinite(snapshot.turnCount) ? Math.max(0, Math.floor(snapshot.turnCount)) : 0;
+            comboCount = Number.isFinite(snapshot.comboCount) ? Math.max(0, Math.floor(snapshot.comboCount)) : 0;
+            availableColorCount = Number.isFinite(snapshot.availableColorCount)
+                ? Math.min(Math.max(Math.floor(snapshot.availableColorCount), 1), COLORS.length)
+                : COLOR_CONFIG.startingColors;
+            preview = Array.isArray(snapshot.preview) ? clonePreviewArray(snapshot.preview) : [];
+            gameOver = !!snapshot.gameOver;
+
+            hudSet(score, highScore, turnCount, grid.size);
+            updatePreviewDisplay();
+
+            if (gameOver) {
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('finalTurns').textContent = turnCount;
+                document.getElementById('highScore').textContent = highScore;
+                document.getElementById('gameOver').style.display = 'flex';
+            } else {
+                document.getElementById('gameOver').style.display = 'none';
+            }
+
+            updateUndoButtonState();
+            render();
+            queueSaveGameState();
+        }
+
         // ====== END ANIMATION FRAMEWORK ======
 
         // Load high score from localStorage
@@ -556,8 +728,9 @@
                 }
             }
 
-            score = Number.isFinite(data.score) ? data.score : 0;
-            turnCount = Number.isFinite(data.turnCount) ? data.turnCount : 0;
+            score = Number.isFinite(data.score) ? Math.max(0, Math.floor(data.score)) : 0;
+            turnCount = Number.isFinite(data.turnCount) ? Math.max(0, Math.floor(data.turnCount)) : 0;
+            comboCount = Number.isFinite(data.comboCount) ? Math.max(0, Math.floor(data.comboCount)) : 0;
 
             availableColorCount = COLOR_CONFIG.startingColors;
             updateAvailableColors();
@@ -570,15 +743,15 @@
             }
 
             if (Array.isArray(data.preview)) {
-                preview = data.preview
-                    .map(value => Number.isFinite(value) ? Math.floor(value) : 0)
-                    .map(value => ((value % COLORS.length) + COLORS.length) % COLORS.length);
+                preview = clonePreviewArray(data.preview);
             } else {
                 preview = generatePreview();
             }
 
             gameOver = !!data.gameOver;
             highScore = Math.max(highScore, Number.isFinite(data.highScore) ? data.highScore : 0);
+
+            loadUndoSnapshot(data.history);
 
             hudSet(score, highScore, turnCount, grid.size);
             updatePreviewDisplay();
@@ -617,6 +790,9 @@
             stopSelectedBallHop();
             selectedCell = null;
             selectedBallAnimation = null;
+
+            lastTurnSnapshot = null;
+            updateUndoButtonState();
 
             // Load high score
             loadHighScore();
@@ -1599,6 +1775,8 @@
                     stopSelectedBallHop();
                     selectedCell = null;
 
+                    pushTurnSnapshot();
+
                     // Animate ball movement along the path
                     animateMoveBallAlongPath(path, ball, () => {
                         // Increment combo count optimistically
@@ -1691,6 +1869,8 @@
         });
 
         // New game controls
+        updateUndoButtonState();
+        btnUndo&&btnUndo.addEventListener('click', undoLastTurn);
         btnAgain&&btnAgain.addEventListener('click', requestRestartGame);
         resetButton&&resetButton.addEventListener('click', requestRestartGame);
 
