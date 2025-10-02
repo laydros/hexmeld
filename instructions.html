@@ -103,8 +103,14 @@
             <a href="https://github.com/laydros/hexmeld" target="_blank" rel="noopener">View on GitHub</a>
         </footer>
     </main>
-    <script>
+    <script type="module">
         (()=>{const v=localStorage.getItem('hexmeld-theme');if(v){document.body.classList.add('theme-'+v);}})();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js').catch((error) => {
+                console.error('Hexmeld service worker registration failed:', error);
+            });
+        }
     </script>
 </body>
 </html>
