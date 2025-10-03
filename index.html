@@ -208,7 +208,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.8.2';
+        const GAME_VERSION = '1.8.3';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -366,6 +366,45 @@
             return ((num % len) + len) % len;
         }
 
+        function forEachStoredGridCell(entries, callback) {
+            if (!Array.isArray(entries) || typeof callback !== 'function') return;
+
+            for (const cellEntry of entries) {
+                let key;
+                let color;
+                let q;
+                let r;
+
+                if (Array.isArray(cellEntry)) {
+                    [key, color] = cellEntry;
+                } else if (cellEntry && typeof cellEntry === 'object') {
+                    if (typeof cellEntry.key === 'string') {
+                        key = cellEntry.key;
+                    }
+                    if (Number.isFinite(cellEntry.q) && Number.isFinite(cellEntry.r)) {
+                        q = cellEntry.q;
+                        r = cellEntry.r;
+                    }
+                    if (Object.prototype.hasOwnProperty.call(cellEntry, 'color')) {
+                        color = cellEntry.color;
+                    }
+                }
+
+                if ((!Number.isFinite(q) || !Number.isFinite(r)) && typeof key === 'string') {
+                    const parts = key.split(',').map(Number);
+                    if (parts.length >= 2) {
+                        [q, r] = parts;
+                    }
+                }
+
+                if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) {
+                    continue;
+                }
+
+                callback({ q, r, color: normalizeColorIndex(color) });
+            }
+        }
+
         function clonePreviewArray(values) {
             if (!Array.isArray(values)) return [];
             return values.map(normalizeColorIndex);
@@ -421,25 +460,9 @@
             if (!entry || typeof entry !== 'object') return null;
 
             const snapshotGrid = new Map();
-            if (Array.isArray(entry.grid)) {
-                for (const cellEntry of entry.grid) {
-                    let key;
-                    let color;
-
-                    if (Array.isArray(cellEntry)) {
-                        [key, color] = cellEntry;
-                    } else if (cellEntry && typeof cellEntry === 'object') {
-                        key = cellEntry.key;
-                        color = cellEntry.color;
-                    }
-
-                    if (typeof key !== 'string') continue;
-                    const [q, r] = key.split(',').map(Number);
-                    if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) continue;
-
-                    snapshotGrid.set(`${q},${r}`, { color: normalizeColorIndex(color) });
-                }
-            }
+            forEachStoredGridCell(entry.grid, ({ q, r, color }) => {
+                snapshotGrid.set(`${q},${r}`, { color });
+            });
 
             return {
                 grid: snapshotGrid,
@@ -669,6 +692,8 @@
             const snapshot = lastTurnSnapshot;
             lastTurnSnapshot = null;
 
+            const preservedPreview = clonePreviewArray(preview);
+
             grid = cloneGridState(snapshot.grid);
             score = Number.isFinite(snapshot.score) ? Math.max(0, Math.floor(snapshot.score)) : 0;
             turnCount = Number.isFinite(snapshot.turnCount) ? Math.max(0, Math.floor(snapshot.turnCount)) : 0;
@@ -676,7 +701,8 @@
             availableColorCount = Number.isFinite(snapshot.availableColorCount)
                 ? Math.min(Math.max(Math.floor(snapshot.availableColorCount), 1), COLORS.length)
                 : COLOR_CONFIG.startingColors;
-            preview = Array.isArray(snapshot.preview) ? clonePreviewArray(snapshot.preview) : [];
+            const snapshotPreview = Array.isArray(snapshot.preview) ? clonePreviewArray(snapshot.preview) : [];
+            preview = preservedPreview.length > 0 ? preservedPreview : snapshotPreview;
             gameOver = !!snapshot.gameOver;
 
             hudSet(score, highScore, turnCount, grid.size);
@@ -738,27 +764,9 @@
 
             grid.clear();
 
-            if (Array.isArray(data.grid)) {
-                for (const entry of data.grid) {
-                    let key;
-                    let color;
-
-                    if (Array.isArray(entry)) {
-                        [key, color] = entry;
-                    } else if (entry && typeof entry === 'object') {
-                        key = entry.key;
-                        color = entry.color;
-                    }
-
-                    if (typeof key !== 'string') continue;
-
-                    const [q, r] = key.split(',').map(Number);
-                    if (!Number.isFinite(q) || !Number.isFinite(r) || !isValidHex(q, r)) continue;
-
-                    const colorIndex = Number.isFinite(color) ? color : 0;
-                    grid.set(`${q},${r}`, { color: ((colorIndex % COLORS.length) + COLORS.length) % COLORS.length });
-                }
-            }
+            forEachStoredGridCell(data.grid, ({ q, r, color }) => {
+                grid.set(`${q},${r}`, { color });
+            });
 
             score = Number.isFinite(data.score) ? Math.max(0, Math.floor(data.score)) : 0;
             turnCount = Number.isFinite(data.turnCount) ? Math.max(0, Math.floor(data.turnCount)) : 0;
