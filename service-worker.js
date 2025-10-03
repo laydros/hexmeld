@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v1.8.1';
 const CACHE_NAME = `hexmeld-cache-${CACHE_VERSION}`;
 const PRECACHE_URLS = [
   './',
@@ -29,18 +29,23 @@ const PRECACHE_URLS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Force the new service worker to activate immediately
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
 });
 
 self.addEventListener('activate', (event) => {
+  // Take control of all pages immediately
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames
-          .filter((name) => name.startsWith('hexmeld-cache-') && name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+    clients.claim().then(() =>
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => name.startsWith('hexmeld-cache-') && name !== CACHE_NAME)
+            .map((name) => caches.delete(name))
+        )
       )
     )
   );
@@ -51,6 +56,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const url = new URL(event.request.url);
+  const isHtmlFile = url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+
+  // Network-first strategy for HTML files to ensure updates
+  if (isHtmlFile) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for assets (images, manifest, etc.)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
