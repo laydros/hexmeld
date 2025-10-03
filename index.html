@@ -208,7 +208,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.8.1';
+        const GAME_VERSION = '1.8.2';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -860,8 +860,7 @@
                 }
             }
 
-            updateScore();
-            updateTurnDisplay();
+            syncHud();
             render();
             queueSaveGameState();
         }
@@ -961,14 +960,8 @@
             queueSaveGameState();
         }
 
-        // Update score display
-        function updateScore() {
-            hudSet(score, highScore, turnCount, grid.size);
-            queueSaveGameState();
-        }
-
-        // Update turn display
-        function updateTurnDisplay() {
+        // Synchronize HUD with current game state
+        function syncHud() {
             hudSet(score, highScore, turnCount, grid.size);
             queueSaveGameState();
         }
@@ -1763,7 +1756,7 @@
                 checkAndRemoveGroups(spawnedCells, (scoreGained) => {
                     if (scoreGained > 0) {
                         score += scoreGained;
-                        updateScore();
+                        syncHud();
                     }
 
                     // Generate new preview
@@ -1832,12 +1825,12 @@
                                 // Group formed - add score with combo multiplier, don't spawn
                                 const finalScore = Math.floor(scoreGained * comboMultiplier);
                                 score += finalScore;
-                                updateScore();
+                                syncHud();
                                 render();
                             } else {
                                 // No group - increment turn, reset combo, spawn new balls
                                 turnCount++;
-                                updateTurnDisplay();
+                                syncHud();
                                 updateAvailableColors();
                                 comboCount = 0;
                                 spawnBalls();
