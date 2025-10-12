@@ -29,23 +29,53 @@
     <meta name="theme-color" content="#0b1020">
     <link rel="manifest" href="assets/manifest.webmanifest">
     <style>
-        :root{color-scheme:dark light;--bg-dark:#1a1f35;--panel-dark:#242b45;--text-dark:#e8ebf0;--muted-dark:#93a0b4;--bg-light:#f6f7fb;--panel-light:#fff;--text-light:#0f1422;--muted-light:#5b667a;--primary:#5b7fff;--danger:#ff6b6b;--gap:12px}
+        :root{
+            color-scheme:dark light;
+            --bg-dark:#1a1f35;
+            --panel-dark:#242b45;
+            --text-dark:#e8ebf0;
+            --muted-dark:#93a0b4;
+            --bg-light:#f6f7fb;
+            --panel-light:#ffffff;
+            --text-light:#0f1422;
+            --muted-light:#5b667a;
+            --bg-high-contrast:#000000;
+            --panel-high-contrast:#10131f;
+            --text-high-contrast:#ffffff;
+            --muted-high-contrast:#dce3ef;
+            --primary:#5b7fff;
+            --primary-high-contrast:#ffd400;
+            --danger:#ff6b6b;
+            --danger-high-contrast:#ff4d4d;
+            --ghost-outline-dark:rgba(0,0,0,.35);
+            --ghost-outline-light:rgba(15,20,34,.22);
+            --ghost-outline-high-contrast:#ffffff;
+            --overlay-bg:rgba(11,16,32,.85);
+            --overlay-bg-high-contrast:rgba(0,0,0,.92);
+            --button-text:#ffffff;
+            --button-text-high-contrast:#000000;
+            --gap:12px;
+        }
         *,*::before,*::after{box-sizing:border-box}
-        body{margin:0;min-height:100vh;display:flex;flex-direction:column;gap:var(--gap);padding:var(--gap);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark);background:var(--bg);color:var(--text)}
-        body.theme-dark{color-scheme:dark;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark)}
-        body.theme-light{color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}
+        body{margin:0;min-height:100vh;display:flex;flex-direction:column;gap:var(--gap);padding:var(--gap);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark);--overlay-bg:var(--overlay-bg);--button-text:var(--button-text);--ghost-outline:var(--ghost-outline-dark);background:var(--bg);color:var(--text)}
+        body.theme-dark{color-scheme:dark;--bg:var(--bg-dark);--panel:var(--panel-dark);--text:var(--text-dark);--muted:var(--muted-dark);--overlay-bg:var(--overlay-bg);--button-text:var(--button-text);--ghost-outline:var(--ghost-outline-dark)}
+        body.theme-light{color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light);--overlay-bg:var(--overlay-bg);--button-text:var(--button-text);--ghost-outline:var(--ghost-outline-light)}
+        body.theme-high-contrast{color-scheme:dark;--bg:var(--bg-high-contrast);--panel:var(--panel-high-contrast);--text:var(--text-high-contrast);--muted:var(--muted-high-contrast);--primary:var(--primary-high-contrast);--danger:var(--danger-high-contrast);--overlay-bg:var(--overlay-bg-high-contrast);--button-text:var(--button-text-high-contrast);--ghost-outline:var(--ghost-outline-high-contrast)}
         @media (prefers-color-scheme: light){body:not(.theme-dark){color-scheme:light;--bg:var(--bg-light);--panel:var(--panel-light);--text:var(--text-light);--muted:var(--muted-light)}}
-        .panel{max-width:660px;width:100%;margin:0 auto;padding:12px;background:var(--panel);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+        .panel{max-width:660px;width:100%;margin:0 auto;padding:12px;background:var(--panel);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.06)}
+        body.theme-high-contrast .panel{border:2px solid #ffffff;box-shadow:0 0 0 2px #000 inset,0 12px 28px rgba(0,0,0,.75)}
 
         .header{display:block}
         h1{font-size:1.4rem;margin:0}
         .meta{color:var(--muted)}
-        .button{display:inline-block;padding:.5rem .75rem;border-radius:8px;border:0;font-weight:600;color:#fff;background:var(--primary);cursor:pointer;transition:transform .12s ease,filter .12s ease}
+        .button{display:inline-block;padding:.5rem .75rem;border-radius:8px;border:0;font-weight:600;color:var(--button-text,#fff);background:var(--primary);cursor:pointer;transition:transform .12s ease,filter .12s ease}
         .button:hover{transform:translateY(-1px);filter:brightness(1.08)}
         .button:active{transform:translateY(0);filter:brightness(.95)}
-        .button.ghost{background:transparent;outline:1px solid #0004;color:var(--text)}
+        .button.ghost{background:transparent;outline:1px solid var(--ghost-outline);color:var(--text)}
         .button.danger{background:var(--danger)}
         .button:disabled{opacity:.5;cursor:not-allowed}
+        body.theme-high-contrast .button{border:2px solid #ffffff;box-shadow:0 0 0 2px #000 inset,0 3px 0 rgba(255,255,255,.35)}
+        body.theme-high-contrast .button.ghost{outline:2px solid #ffffff;border-width:2px}
         #canvas.shake{animation:shake .32s ease-in-out}
         @keyframes shake{
             0%,100%{transform:translateX(0)}
@@ -57,7 +87,9 @@
         main{flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--gap);width:100%}
         #gameContainer{display:flex;flex-direction:column;gap:var(--gap);align-items:center}
         #canvas{width:100%;height:auto;max-width:440px;border-radius:12px;background:#0001;border:1px solid #0004;box-shadow:0 12px 24px rgba(0,0,0,.25),inset 0 1px 2px rgba(255,255,255,.08),0 4px 8px rgba(0,0,0,.15)}
+        body.theme-high-contrast #canvas{background:#05070f;border:2px solid #ffffff;box-shadow:0 0 0 2px #000 inset,0 16px 36px rgba(0,0,0,.9)}
         #preview{display:flex;gap:8px;align-items:center;font-weight:600}
+        #preview span{color:var(--text)}
         .previewBall{
             position:relative;
             width:24px;
@@ -84,17 +116,17 @@
         }
         footer{margin-top:auto;text-align:center;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;align-items:center}
         footer a{color:inherit;text-decoration:none}
-        footer a.button{color:#fff}
+        footer a.button{color:var(--button-text,#fff)}
         footer a.button:hover{text-decoration:none}
         footer a:hover{text-decoration:underline}
         .source-link{font-size:.7rem;opacity:.72}
         #versionDisplay{margin-top:6px;font-size:.75rem}
-        #gameOver{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,16,32,.85);backdrop-filter:blur(4px);z-index:20}
+        #gameOver{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:var(--overlay-bg);backdrop-filter:blur(4px);z-index:20}
         #gameOver .panel{max-width:360px;text-align:center}
         #gameOver h2{margin:0 0 12px;font-size:1.5rem}
         #gameOver p{margin:6px 0;color:var(--muted)}
         #resetButton{margin-top:16px}
-        #welcomeModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(11,16,32,.88);backdrop-filter:blur(4px);z-index:30}
+        #welcomeModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:var(--overlay-bg);backdrop-filter:blur(4px);z-index:30}
         #welcomeModal .panel{max-width:360px;text-align:center}
         #welcomeModal h2{margin:0 0 12px;font-size:1.5rem}
         #welcomeModal p{margin:6px 0;color:var(--muted)}
@@ -159,36 +191,84 @@
     </footer>
 
     <script type="module">
-        // Theme toggle: toggles between dark and light (persists)
+        // Theme toggle: cycles through dark, light, and high contrast (persists)
         (()=>{
-            const k='hexmeld-theme',b=document.body;
-            let currentTheme=localStorage.getItem(k);
+            const STORAGE_KEY='hexmeld-theme';
+            const THEMES=['dark','light','high-contrast'];
+            const THEME_LABELS={dark:'Dark',light:'Light','high-contrast':'High Contrast'};
+            const themeClasses=THEMES.map(theme=>'theme-'+theme);
+            const body=document.body;
+            let currentTheme=THEMES[0];
 
-            // Default to dark if no preference set
-            if(!currentTheme){
-                currentTheme='dark';
-                localStorage.setItem(k,currentTheme);
+            if(typeof localStorage!=='undefined'){
+                try{
+                    const stored=localStorage.getItem(STORAGE_KEY);
+                    if(stored && THEMES.includes(stored)){
+                        currentTheme=stored;
+                    }else if(!stored){
+                        localStorage.setItem(STORAGE_KEY,currentTheme);
+                    }
+                }catch(err){
+                    console.warn('Hexmeld: unable to read theme preference',err);
+                }
             }
 
-            const apply=v=>{
-                currentTheme=v;
-                b.classList.remove('theme-dark','theme-light');
-                b.classList.add('theme-'+v);
-                const t=document.getElementById('themeToggle');
-                if(t) t.setAttribute('aria-pressed','true');
+            const updateButton=()=>{
+                const button=document.getElementById('themeToggle');
+                if(!button) return;
+                const label=THEME_LABELS[currentTheme]||currentTheme;
+                const ariaPressed=currentTheme==='light'?'true':currentTheme==='high-contrast'?'mixed':'false';
+                button.setAttribute('aria-pressed',ariaPressed);
+                button.setAttribute('aria-label',`Theme: ${label}. Activate to switch theme.`);
+                button.setAttribute('title',`Switch theme (current: ${label})`);
+                button.textContent=`Theme: ${label}`;
             };
-            apply(currentTheme);
 
-            // Ensure button exists before attaching listener
-            const setupButton=()=>{
-                const t=document.getElementById('themeToggle');
-                if(t){
-                    t.addEventListener('click',()=>{
-                        const v=currentTheme==='dark'?'light':'dark';
-                        apply(v);
-                        localStorage.setItem(k,v);
-                    });
+            const scheduleRerender=()=>{
+                const rerender=()=>{
+                    if(typeof render==='function'){
+                        render();
+                    }
+                    if(typeof updatePreviewDisplay==='function'){
+                        updatePreviewDisplay();
+                    }
+                };
+                if(typeof requestAnimationFrame==='function'){
+                    requestAnimationFrame(rerender);
+                }else{
+                    setTimeout(rerender,0);
                 }
+            };
+
+            const applyTheme=theme=>{
+                if(!THEMES.includes(theme)){
+                    theme=THEMES[0];
+                }
+                currentTheme=theme;
+                body.classList.remove(...themeClasses);
+                body.classList.add('theme-'+theme);
+                updateButton();
+                scheduleRerender();
+            };
+
+            applyTheme(currentTheme);
+
+            const setupButton=()=>{
+                const button=document.getElementById('themeToggle');
+                if(!button) return;
+                updateButton();
+                button.addEventListener('click',()=>{
+                    const index=THEMES.indexOf(currentTheme);
+                    const nextTheme=THEMES[(index+1)%THEMES.length];
+                    applyTheme(nextTheme);
+                    if(typeof localStorage!=='undefined'){
+                        try{
+                            localStorage.setItem(STORAGE_KEY,nextTheme);
+                        }catch(err){
+                            console.warn('Hexmeld: unable to store theme preference',err);
+                        }
+                    }
+                });
             };
 
             if(document.readyState==='loading'){
@@ -226,7 +306,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.8.5';
+        const GAME_VERSION = '1.8.6';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -302,16 +382,49 @@
 
         // Constants
         const BOARD_RADIUS = 6;
-        const COLORS = [
-            '#0000FF', // Blue
-            '#FFFF00', // Yellow
-            '#FF0000', // Red
-            '#00FF00', // Green
-            '#FFA500', // Orange
-            '#800080', // Purple
-            '#FFFFFF', // White
-            '#00FFFF'  // Turquoise
-        ];
+        const COLOR_PALETTES = {
+            default: [
+                '#0000FF', // Blue
+                '#FFFF00', // Yellow
+                '#FF0000', // Red
+                '#00FF00', // Green
+                '#FFA500', // Orange
+                '#800080', // Purple
+                '#FFFFFF', // White
+                '#00FFFF'  // Turquoise
+            ],
+            highContrast: [
+                '#2B6DFF', // Vivid blue
+                '#FFE500', // Bright yellow
+                '#FF1744', // Vivid red
+                '#00F59B', // Bright green
+                '#FF9E00', // Bright orange
+                '#C792FF', // Bright purple
+                '#FFFFFF', // White
+                '#00E5FF'  // Bright cyan
+            ]
+        };
+        const MAX_COLOR_COUNT = Object.values(COLOR_PALETTES).reduce((max,palette)=>{
+            const length=Array.isArray(palette)?palette.length:0;
+            return length>max?length:max;
+        },0);
+        function clampColorCount(value){
+            const max=Math.max(1,MAX_COLOR_COUNT);
+            const num=Number.isFinite(value)?Math.floor(value):1;
+            return Math.min(Math.max(num,1),max);
+        }
+        function getActivePalette(){
+            if(typeof document!=='undefined' && document.body && document.body.classList.contains('theme-high-contrast')){
+                return COLOR_PALETTES.highContrast;
+            }
+            return COLOR_PALETTES.default;
+        }
+        function getPaletteColor(index){
+            const palette=getActivePalette();
+            const length=palette.length||1;
+            const normalized=((index%length)+length)%length;
+            return palette[normalized]||'#FFFFFF';
+        }
 
         function adjustColor(hex, amount) {
             if (!hex) return '#FFFFFF';
@@ -438,7 +551,7 @@
         let score = 0;
         let turnCount = 0;
         let comboCount = 0;
-        let availableColorCount = COLOR_CONFIG.startingColors;
+        let availableColorCount = clampColorCount(COLOR_CONFIG.startingColors);
         let preview = [];
         let lastTurnSnapshot = null;
         let gameOver = false;
@@ -454,8 +567,8 @@
                 const storedTurn = Number.isFinite(turnCount) ? Math.max(0, Math.floor(turnCount)) : 0;
                 const storedCombo = Number.isFinite(comboCount) ? Math.max(0, Math.floor(comboCount)) : 0;
                 const storedAvailableColors = Number.isFinite(availableColorCount)
-                    ? Math.min(Math.max(Math.floor(availableColorCount), 1), COLORS.length)
-                    : COLOR_CONFIG.startingColors;
+                    ? clampColorCount(availableColorCount)
+                    : clampColorCount(COLOR_CONFIG.startingColors);
 
                 const state = {
                     version: GAME_VERSION,
@@ -509,7 +622,7 @@
         }
 
         function normalizeColorIndex(value) {
-            const len = COLORS.length || 1;
+            const len = MAX_COLOR_COUNT || 1;
             const num = Number.isFinite(value) ? Math.floor(value) : 0;
             return ((num % len) + len) % len;
         }
@@ -595,8 +708,8 @@
                 turnCount: Number.isFinite(snapshot.turnCount) ? Math.max(0, Math.floor(snapshot.turnCount)) : 0,
                 preview: clonePreviewArray(snapshot.preview),
                 availableColorCount: Number.isFinite(snapshot.availableColorCount)
-                    ? Math.min(Math.max(Math.floor(snapshot.availableColorCount), 1), COLORS.length)
-                    : COLOR_CONFIG.startingColors,
+                    ? clampColorCount(snapshot.availableColorCount)
+                    : clampColorCount(COLOR_CONFIG.startingColors),
                 gameOver: !!snapshot.gameOver,
                 comboCount: Number.isFinite(snapshot.comboCount) ? Math.max(0, Math.floor(snapshot.comboCount)) : 0,
                 rngState: Number.isFinite(snapshot.rngState) ? snapshot.rngState >>> 0 : getRngState()
@@ -620,8 +733,8 @@
                 turnCount: Number.isFinite(entry.turnCount) ? Math.max(0, Math.floor(entry.turnCount)) : 0,
                 preview: clonePreviewArray(entry.preview),
                 availableColorCount: Number.isFinite(entry.availableColorCount)
-                    ? Math.min(Math.max(Math.floor(entry.availableColorCount), 1), COLORS.length)
-                    : COLOR_CONFIG.startingColors,
+                    ? clampColorCount(entry.availableColorCount)
+                    : clampColorCount(COLOR_CONFIG.startingColors),
                 gameOver: !!entry.gameOver,
                 comboCount: Number.isFinite(entry.comboCount) ? Math.max(0, Math.floor(entry.comboCount)) : 0,
                 rngState: Number.isFinite(entry.rngState) ? entry.rngState >>> 0 : getRngState()
@@ -848,8 +961,8 @@
             turnCount = Number.isFinite(snapshot.turnCount) ? Math.max(0, Math.floor(snapshot.turnCount)) : 0;
             comboCount = Number.isFinite(snapshot.comboCount) ? Math.max(0, Math.floor(snapshot.comboCount)) : 0;
             availableColorCount = Number.isFinite(snapshot.availableColorCount)
-                ? Math.min(Math.max(Math.floor(snapshot.availableColorCount), 1), COLORS.length)
-                : COLOR_CONFIG.startingColors;
+                ? clampColorCount(snapshot.availableColorCount)
+                : clampColorCount(COLOR_CONFIG.startingColors);
             const snapshotPreview = Array.isArray(snapshot.preview) ? clonePreviewArray(snapshot.preview) : [];
             preview = snapshotPreview;
             gameOver = !!snapshot.gameOver;
@@ -932,14 +1045,14 @@
             turnCount = Number.isFinite(data.turnCount) ? Math.max(0, Math.floor(data.turnCount)) : 0;
             comboCount = Number.isFinite(data.comboCount) ? Math.max(0, Math.floor(data.comboCount)) : 0;
 
-            availableColorCount = COLOR_CONFIG.startingColors;
+            availableColorCount = clampColorCount(COLOR_CONFIG.startingColors);
             updateAvailableColors();
             const computedAvailableColors = availableColorCount;
             if (Number.isFinite(data.availableColorCount)) {
-                const storedCount = Math.max(Math.floor(data.availableColorCount), 1);
-                availableColorCount = Math.min(Math.max(computedAvailableColors, storedCount), COLORS.length);
+                const storedCount = clampColorCount(data.availableColorCount);
+                availableColorCount = clampColorCount(Math.max(computedAvailableColors, storedCount));
             } else {
-                availableColorCount = computedAvailableColors;
+                availableColorCount = clampColorCount(computedAvailableColors);
             }
 
             if (Array.isArray(data.preview)) {
@@ -1011,7 +1124,7 @@
             score = 0;
             turnCount = 0;
             comboCount = 0;
-            availableColorCount = COLOR_CONFIG.startingColors;
+            availableColorCount = clampColorCount(COLOR_CONFIG.startingColors);
             preview = generatePreview();
             updatePreviewDisplay();
 
@@ -1063,7 +1176,7 @@
                     newColorCount += expansion.addColors;
                 }
             }
-            availableColorCount = Math.min(newColorCount, COLORS.length);
+            availableColorCount = clampColorCount(newColorCount);
         }
 
         // Get spawn count based on turn and remaining empty cells
@@ -1102,15 +1215,18 @@
         // Update preview display
         function updatePreviewDisplay() {
             const previewContainer = document.getElementById('preview');
+            if (!previewContainer) return;
             // Clear existing preview balls (except the "Next:" label)
             const existingBalls = previewContainer.querySelectorAll('.previewBall');
             existingBalls.forEach(ball => ball.remove());
 
             // Add new preview balls
+            const palette = getActivePalette();
+            const paletteLength = palette.length || 1;
             for (let i = 0; i < preview.length; i++) {
                 const ball = document.createElement('div');
-                const colorIndex = preview[i] % COLORS.length;
-                const baseColor = COLORS[colorIndex] || '#FFFFFF';
+                const normalizedIndex = ((preview[i] % paletteLength) + paletteLength) % paletteLength;
+                const baseColor = palette[normalizedIndex] || '#FFFFFF';
                 const highlightColor = adjustColor(baseColor, 70);
                 const shadowColor = adjustColor(baseColor, -80);
                 const rimLight = adjustColor(baseColor, 95);
@@ -1231,6 +1347,14 @@
                 .map(hex => `${hex.q},${hex.r}`);
         }
 
+        function getBoardVisualStyle() {
+            const classes = (typeof document!=='undefined' && document.body) ? document.body.classList : null;
+            if (classes && classes.contains('theme-high-contrast')) {
+                return { fill: '#1f2937', stroke: '#ffffff', blockedFill: '#2c3a52' };
+            }
+            return { fill: '#999999', stroke: '#333333', blockedFill: '#bbbbbb' };
+        }
+
         // Draw a hexagon
         function drawHex(centerX, centerY, fill = null, stroke = '#333') {
             ctx.beginPath();
@@ -1273,7 +1397,7 @@
             ctx.globalAlpha = opacity;
 
             const radius = HEX_SIZE * 0.7 * scale;
-            const baseColor = COLORS[colorIndex % COLORS.length] || '#FFFFFF';
+            const baseColor = getPaletteColor(colorIndex);
             const highlightColor = adjustColor(baseColor, 70);
             const shadowColor = adjustColor(baseColor, -60);
 
@@ -1364,6 +1488,7 @@
 
             // Draw all hexes
             const allCells = getAllCells();
+            const boardStyle = getBoardVisualStyle();
             const deferredSelectedBalls = [];
             for (const cellKey of allCells) {
                 const [q, r] = cellKey.split(',').map(Number);
@@ -1374,7 +1499,7 @@
                 // Check if this is the blocked cell (show red flash)
                 if (blockedCell && blockedCell.q === q && blockedCell.r === r) {
                     const alpha = 1 - blockedCell.flashProgress;
-                    drawHex(pos.x, pos.y, '#999', `rgba(255, 0, 0, ${alpha})`);
+                    drawHex(pos.x, pos.y, boardStyle.blockedFill, `rgba(255, 0, 0, ${alpha})`);
                     // Draw extra thick red outline
                     ctx.save();
                     ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
@@ -1394,7 +1519,7 @@
                     ctx.stroke();
                     ctx.restore();
                 } else {
-                    drawHex(pos.x, pos.y, '#999');
+                    drawHex(pos.x, pos.y, boardStyle.fill, boardStyle.stroke);
                 }
 
                 if (grid.has(cellKey)) {
