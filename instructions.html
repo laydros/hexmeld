@@ -45,6 +45,7 @@
         .button{display:inline-block;padding:.5rem .75rem;border-radius:8px;border:0;font-weight:600;color:#fff;background:var(--primary);text-decoration:none;cursor:pointer}
         .button:hover{filter:brightness(1.08)}
         .button:active{filter:brightness(.95)}
+        .button.danger{background:#ff6b6b}
         .color-demo{display:inline-block;width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,.4);margin-right:6px;vertical-align:middle}
         footer{margin-top:2rem;text-align:center;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:4px;align-items:center}
         footer a{color:inherit;text-decoration:none}
@@ -77,25 +78,28 @@
         <ul>
             <li>Connect <strong>6 or more</strong> balls of the same color to score points.</li>
             <li>Groups must be adjacent (touching each other on hex edges).</li>
-            <li>When a group forms, the balls disappear and you earn points.</li>
             <li>Points formula: <strong>6 balls = 6 points</strong>, <strong>7 balls = 8 points</strong>, <strong>8 balls = 11 points</strong>, etc.</li>
             <li>The score increases faster with larger groups!</li>
-            <li><strong>Combo bonus:</strong> Clear groups on consecutive moves to earn score multipliers (1.5x, 2x, up to 2.5x). The combo resets when you make a move that doesn't clear any balls.</li>
+            <li><strong>Combo bonus:</strong> Clear groups on consecutive moves to earn score multipliers. The combo resets when you make a move that doesn't clear any balls.</li>
         </ul>
 
         <h3>New Ball Spawning</h3>
         <ul>
-            <li>After each move (if no group formed), new balls spawn in random empty locations.</li>
+            <li>After each move that doesn't form a group, new balls spawn in random empty locations.</li>
             <li>The <strong>"Next:"</strong> preview shows which colors will spawn next.</li>
             <li>The number of balls that spawn increases over time as the difficulty ramps up.</li>
-            <li>If spawned balls form a group, they are removed immediately.</li>
+            <li>If spawned balls form a group, they are removed immediately, starting a new combo.</li>
         </ul>
 
         <h3>Restarting</h3>
-        <p>Use <strong>New Game</strong> to start fresh. If the board still has pieces and the game isn’t over yet, Hexmeld will ask for confirmation so you don’t wipe an active board by accident. After a game ends, the button restarts immediately without the prompt.</p>
+        <p>Use <strong>New Game</strong> to start fresh.</p>
 
         <h3>Undo</h3>
-        <p>Made a mistake? Tap <strong>Undo</strong> to rewind the most recent completed turn. Hexmeld keeps just a single safety snapshot so you can quickly undo one mis-tap; after you use it, the button disables until you finish another turn. The game restores the board, score, turn counter, preview, and any combo progress exactly as they were before that move resolved, and cancels any animations in progress so you can keep playing right away.</p>
+        <p>Made a mistake? Tap <strong>Undo</strong> to rewind the most recent completed turn.</p>
+
+        <h3>Reset All Data</h3>
+        <p>If you'd like to start completely fresh, you can reset all game data. This will clear your saved game, high score, theme preference, and all other settings.</p>
+        <p><button id="resetDataButton" class="button danger">Reset All Data</button></p>
 
         <h3>Theme Options</h3>
         <p>Use the <strong>Theme</strong> button to cycle between dark, light, and high-contrast themes. The high-contrast theme features maximum contrast colors with enhanced visibility, including brighter ball colors and bold borders to improve accessibility.</p>
@@ -124,7 +128,8 @@
             <li>Plan ahead - look at the "Next" preview to see what colors are coming.</li>
             <li>Try to build groups near each other so you can merge them.</li>
             <li>Don't let one color dominate the board - clear groups regularly.</li>
-            <li>Larger groups give exponentially more points - aim for big combos!</li>
+            <li>Larger groups give more points - aim for big combos!</li>
+            <li>Work with naturally occurring clusters rather than trying to organize balls by color - moves are a limited resource.</li>
             <li>Keep pathways open so balls can reach where they need to go.</li>
         </ul>
 
@@ -143,6 +148,27 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('service-worker.js').catch((error) => {
                 console.error('Hexmeld service worker registration failed:', error);
+            });
+        }
+
+        // Reset all data button
+        const resetButton = document.getElementById('resetDataButton');
+        if (resetButton) {
+            resetButton.addEventListener('click', () => {
+                if (confirm('Reset all game data? This will clear your saved game, high score, theme preference, and all settings. This action cannot be undone.')) {
+                    try {
+                        localStorage.removeItem('hexmeldGameState');
+                        localStorage.removeItem('hexmeldHighScore');
+                        localStorage.removeItem('hexmeldFirstVisit');
+                        localStorage.removeItem('hexmeld-theme');
+                        localStorage.removeItem('hexmeldRngState');
+                        alert('All data has been reset. Returning to the game...');
+                        window.location.href = 'index.html';
+                    } catch (err) {
+                        alert('Failed to reset data. Please try clearing your browser cache manually.');
+                        console.error('Reset failed:', err);
+                    }
+                }
             });
         }
     </script>
