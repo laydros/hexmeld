@@ -306,7 +306,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '1.9.0';
+        const GAME_VERSION = '2.0.0';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -471,6 +471,9 @@
         const SPAWN_INCREASES_SORTED = [...(SPAWN_CONFIG.increases || [])].sort((a, b) => a.afterTurn - b.afterTurn);
         const SPAWN_THRESHOLDS_SORTED = [...(SPAWN_CONFIG.boardThresholds || [])].sort((a, b) => a.emptyCells - b.emptyCells);
         const RNG_STATE_KEY = 'hexmeldRngState';
+
+        // Combo multipliers: indexed by comboCount-1 (combo 1 = index 0)
+        const COMBO_MULTIPLIERS = [1, 1.5, 2, 4, 8, 12, 20, 32];
 
         function generateSeed() {
             if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
@@ -1937,7 +1940,8 @@
         }
 
         // Remove groups with animation and callback
-        function checkAndRemoveGroups(cellsToCheck, callback, onGroupCleared = null) {
+        // trackCombo: if true, increments comboCount for each group found and applies multiplier
+        function checkAndRemoveGroups(cellsToCheck, callback, onGroupCleared = null, trackCombo = false) {
             let totalScore = 0;
 
             function checkIteration() {
@@ -1957,13 +1961,24 @@
                 }
 
                 if (foundGroup) {
+                    // Increment combo if tracking
+                    if (trackCombo) {
+                        comboCount++;
+                    }
+
+                    // Get combo multiplier from lookup table, default to last value if beyond array
+                    const comboMultiplier = trackCombo
+                        ? (COMBO_MULTIPLIERS[comboCount - 1] || COMBO_MULTIPLIERS[COMBO_MULTIPLIERS.length - 1])
+                        : 1;
+
                     // Animate removal
                     const groupScore = calculateScore(foundGroup.length);
-                    totalScore += groupScore;
+                    const finalScore = Math.floor(groupScore * comboMultiplier);
+                    totalScore += finalScore;
 
                     // Notify caller of group cleared (for score animation)
                     if (onGroupCleared) {
-                        onGroupCleared(foundGroup, groupScore);
+                        onGroupCleared(foundGroup, finalScore, comboMultiplier);
                     }
 
                     animateRemoveBalls(foundGroup, () => {
@@ -2045,7 +2060,7 @@
 
             // Animate spawning
             animateSpawnBalls(cellsAndColors, () => {
-                // After spawn animation, check for groups
+                // After spawn animation, check for groups with combo tracking enabled
                 const spawnedCells = cellsAndColors.map(item => item.cellKey);
 
                 checkAndRemoveGroups(spawnedCells, (scoreGained) => {
@@ -2065,10 +2080,10 @@
 
                     render();
                     if (callback) callback();
-                }, (groupCells, groupScore) => {
-                    // Show floating score for spawned ball groups (no combo)
-                    animateFloatingScore(groupCells, groupScore, 1);
-                });
+                }, (groupCells, finalScore, comboMultiplier) => {
+                    // Show floating score for spawned ball groups with combo multiplier
+                    animateFloatingScore(groupCells, finalScore, comboMultiplier);
+                }, true); // Enable combo tracking for spawned balls
             });
         }
 
@@ -2110,16 +2125,11 @@
 
                     // Animate ball movement along the path
                     animateMoveBallAlongPath(path, ball, () => {
-                        // Increment combo count optimistically
-                        comboCount++;
-                        const comboMultiplier = Math.min(1 + (comboCount - 1) * 0.5, 2.5);
-
-                        // Check for groups at destination
+                        // Check for groups at destination with combo tracking enabled
                         checkAndRemoveGroups([cellKey], (scoreGained) => {
                             if (scoreGained > 0) {
-                                // Group formed - add score with combo multiplier, don't spawn
-                                const finalScore = Math.floor(scoreGained * comboMultiplier);
-                                score += finalScore;
+                                // Group formed - add score (already includes combo multiplier), don't spawn
+                                score += scoreGained;
                                 syncHud();
                                 render();
                             } else {
@@ -2130,11 +2140,10 @@
                                 comboCount = 0;
                                 spawnBalls();
                             }
-                        }, (groupCells, groupScore) => {
+                        }, (groupCells, finalScore, comboMultiplier) => {
                             // Show floating score with combo multiplier
-                            const displayScore = Math.floor(groupScore * comboMultiplier);
-                            animateFloatingScore(groupCells, displayScore, comboMultiplier);
-                        });
+                            animateFloatingScore(groupCells, finalScore, comboMultiplier);
+                        }, true); // Enable combo tracking
                     });
                 } else {
                     // Path blocked - show feedback
