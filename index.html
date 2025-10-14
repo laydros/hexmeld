@@ -306,7 +306,7 @@
         }
 
         // Version check
-        const GAME_VERSION = '2.0.2';
+        const GAME_VERSION = '2.0.3';
         console.log('Hexmeld version:', GAME_VERSION);
         document.getElementById('versionDisplay').textContent = `v${GAME_VERSION}`;
 
@@ -473,7 +473,7 @@
         const RNG_STATE_KEY = 'hexmeldRngState';
 
         // Combo multipliers: indexed by comboCount-1 (combo 1 = index 0)
-        const COMBO_MULTIPLIERS = [1, 1.5, 2, 4, 8, 12, 20, 32];
+        const COMBO_MULTIPLIERS = [1, 2, 3, 6, 10, 12, 20, 32];
 
         function generateSeed() {
             if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
